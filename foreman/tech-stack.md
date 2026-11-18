@@ -54,4 +54,4 @@
 
 ## Open
 
-- Build commands in `workflow.md` are `none yet` until `Cargo.toml` exists.
+none
