@@ -3,6 +3,7 @@
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize, Serializer};
@@ -73,6 +74,15 @@ pub enum Message {
 pub struct Timestamp(pub u64);
 
 impl Timestamp {
+    /// The current time; a clock set before 1970 reads as the epoch.
+    #[must_use]
+    pub fn now() -> Self {
+        let secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        Self(secs)
+    }
+
     /// Parses `YYYY-MM-DDTHH:MM:SSZ`.
     ///
     /// # Errors
