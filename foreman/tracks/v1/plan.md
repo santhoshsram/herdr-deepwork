@@ -11,7 +11,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 05 feat(panel): control popup pauses, resumes, stops, goes back, ends a break | AC: AC6, AC7, AC8, AC18, AC21, AC22 | deps: 04 [0882c5b]
 - [x] 06 feat(panel): mouse clicks act like keys | AC: AC17 | deps: 05 [d2ea2cd]
 - [x] 07 feat(plugin): manifest, install step and README config | AC: AC16 | deps: 03, 05 [726a997]
-- [ ] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07
+- [x] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07 [b9b0b1a]
 
 ## Shared contract (all tasks)
 

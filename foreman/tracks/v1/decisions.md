@@ -79,3 +79,5 @@ cell is written `\|`.
 | eng | Mouse handling | settled | Only a left-button release counts; click areas come from the same lists that draw the rows; a Focus length click starts, a Break click selects, the custom field needs a second click to start, as in `mock.html` | task 06 hand-back |
 | eng | Popup size | settled | review: `width = 60`, `height = 20`, picked by the implementer; check against the real popup in prove | task 07 hand-back |
 | eng | How the action opens the popup | settled | `sh -c` wrapper so `$HERDR_BIN_PATH` expands; pane runs `bin/herdr-focus panel` from the plugin folder | task 07 hand-back |
+| eng | Linux binary compatibility | settled | review: built on ubuntu-24.04 runners, so they need glibc 2.39 or newer (no Ubuntu 22.04, Debian 12); a static musl build would widen this | task 08 hand-back |
+| eng | Release tag and version | settled | review: the tag must be `v` plus `herdr-plugin.toml` `version`; the workflow does not check it | task 08 hand-back |
