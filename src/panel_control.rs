@@ -220,17 +220,18 @@ impl ControlPopup {
         if key == Key::Esc {
             return Outcome::Close;
         }
-        let Some(action) = action else {
-            return Outcome::Stay;
-        };
         // Reread: the timer may have changed since the popup was drawn, and a
         // key must never act on a screen the user is no longer looking at.
+        // Any key redraws for the new timer, even one with no button.
         let saved = ctx.load();
         let now = Timestamp::now();
         let view = timeline::view(&saved, now);
         if !self.shows(&saved, view) {
             return Outcome::Reopen(saved);
         }
+        let Some(action) = action else {
+            return Outcome::Stay;
+        };
         self.act(action, ctx, &saved, view, now)
     }
 
@@ -310,7 +311,7 @@ impl ControlPopup {
 }
 
 /// `timer` with nothing running; the remembered choices and the last home
-/// stay, so status knows where to clear the token.
+/// stay.
 fn ended(timer: &Timer) -> Timer {
     Timer {
         mode: Mode::Idle,

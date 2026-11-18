@@ -40,5 +40,14 @@ chmod +x "$tmp/herdr-focus"
 
 dest="$HOME/.local/state/herdr/plugins/focus"
 mkdir -p bin "$dest" || fail "cannot create install folders"
-cp "$tmp/herdr-focus" bin/herdr-focus || fail "cannot copy into the plugin folder"
-cp "$tmp/herdr-focus" "$dest/herdr-focus" || fail "cannot copy to $dest"
+# The tab bar runs $dest/herdr-focus every second. Writing over it in place
+# fails on Linux (text file busy) and on macOS gets later runs killed for a
+# stale code signature, so each copy lands beside its target and is renamed
+# over it. Both are staged first so a failure installs neither.
+cp "$tmp/herdr-focus" bin/.herdr-focus.new || fail "cannot copy into the plugin folder"
+cp "$tmp/herdr-focus" "$dest/.herdr-focus.new" || {
+  rm -f bin/.herdr-focus.new
+  fail "cannot copy to $dest"
+}
+mv -f bin/.herdr-focus.new bin/herdr-focus || fail "cannot copy into the plugin folder"
+mv -f "$dest/.herdr-focus.new" "$dest/herdr-focus" || fail "cannot copy to $dest"

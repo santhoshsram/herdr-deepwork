@@ -37,8 +37,8 @@ fn line_for(herdr: &Herdr, timer: &Timer, view: View, active: Option<&str>) -> S
         View::Focus { .. } => timer.away_target(active),
         _ => None,
     };
-    // The token call is already running, so the lookup runs beside it under
-    // the same deadline.
+    // The token call is already running, so the lookup overlaps it and the
+    // two budgets add up to little more than one.
     let line = match away {
         Some((pane, name)) if herdr.has_pane(pane) => format!("{line} ← {name}"),
         _ => line,

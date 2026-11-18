@@ -117,7 +117,9 @@ impl Timestamp {
         let month = field(5, 7)?;
         let day = field(8, 10)?;
         let (hour, minute, second) = (field(11, 13)?, field(14, 16)?, field(17, 19)?);
-        if !(1..=12).contains(&month)
+        // Days count up from 1970 in unsigned arithmetic, so earlier would wrap.
+        if year < 1970
+            || !(1..=12).contains(&month)
             || day < 1
             || day > days_in_month(year, month)
             || hour > 23
@@ -302,6 +304,14 @@ impl Timer {
         {
             return Err(invalid("last_custom_mins out of range"));
         }
+        // Resume adds it to the clock; past the longest focus it could overflow
+        // or save an end time the parser rejects.
+        if self
+            .left_secs
+            .is_some_and(|s| s > u64::from(*FOCUS_RANGE.end()) * 60)
+        {
+            return Err(invalid("left_secs out of range"));
+        }
         if self.message.is_some() != self.message_ends_at.is_some() {
             return Err(invalid("message and message_ends_at disagree"));
         }
@@ -432,6 +442,8 @@ mod tests {
             "2026-02-30T00:00:00Z",
             "2026-11-18 09:05:07Z",
             "2026-11-18T09:05:07+00:00",
+            "1969-12-31T23:59:59Z",
+            "0000-01-01T00:00:00Z",
         ] {
             assert!(Timestamp::parse(text).is_err(), "{text}");
         }
@@ -468,7 +480,16 @@ mod tests {
         let focus_without_end = IDLE.replace("idle", "focus");
         let missing = IDLE.replace(r#","message_ends_at":null"#, "");
         let zero = IDLE.replace(r#""last_focus_mins":25"#, r#""last_focus_mins":0"#);
-        for text in ["", "[]", "{}", &focus_without_end, &missing, &zero] {
+        let endless = IDLE.replace(r#""left_secs":null"#, r#""left_secs":18446744073709551615"#);
+        for text in [
+            "",
+            "[]",
+            "{}",
+            &focus_without_end,
+            &missing,
+            &zero,
+            &endless,
+        ] {
             assert!(Timer::parse(text).is_err(), "{text}");
         }
     }
