@@ -35,6 +35,30 @@ pub enum View {
     BreakOver,
 }
 
+/// What a running timer is doing, as far as the control popup cares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Phase {
+    /// A focus counts down.
+    Focus,
+    /// A focus is held.
+    Paused,
+    /// A break counts down.
+    Break,
+}
+
+/// The phase of a running timer; `None` when nothing runs.
+#[must_use]
+pub fn phase(view: View) -> Option<Phase> {
+    match view {
+        View::Focus { .. } => Some(Phase::Focus),
+        View::Paused { .. } => Some(Phase::Paused),
+        // The break has begun even while the tab bar still reports the focus
+        // as done.
+        View::FocusDoneBreak { .. } | View::Break { .. } => Some(Phase::Break),
+        View::Idle | View::FocusDone | View::BreakOver => None,
+    }
+}
+
 /// What the timer shows at `now`.
 ///
 /// A state the clock already passed is skipped, never shown late.
@@ -147,6 +171,20 @@ mod tests {
         };
         assert_eq!(view(&t, Timestamp(T - 1)), View::FocusDone);
         assert_eq!(view(&t, Timestamp(T)), View::Idle);
+    }
+
+    #[test]
+    fn running_states_have_a_phase() {
+        assert_eq!(phase(View::Focus { left_secs: 5 }), Some(Phase::Focus));
+        assert_eq!(phase(View::Paused { left_secs: 5 }), Some(Phase::Paused));
+        assert_eq!(phase(View::Break { left_secs: 5 }), Some(Phase::Break));
+        assert_eq!(
+            phase(View::FocusDoneBreak { break_mins: 5 }),
+            Some(Phase::Break)
+        );
+        assert_eq!(phase(View::FocusDone), None);
+        assert_eq!(phase(View::BreakOver), None);
+        assert_eq!(phase(View::Idle), None);
     }
 
     #[test]

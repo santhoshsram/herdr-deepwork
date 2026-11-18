@@ -1,50 +1,15 @@
 //! The control popup: pause, resume, stop, go back home or end a break.
 
 use crate::format;
-use crate::herdr::is_pane_reply;
+use crate::herdr::{Call, finish_quietly};
 use crate::keys::Key;
-use crate::panel::{Context, Outcome};
-use crate::state::{self, Mode, Timer, Timestamp};
-use crate::timeline::{self, View};
-
-const NOT_ANSWERING: &str = "herdr is not answering";
-const NOT_SAVED: &str = "Could not save";
+use crate::panel::{self, BOLD, Context, DIM, NOT_ANSWERING, Outcome, RED, RESET, REVERSE, hint};
+use crate::state::{Mode, Timer, Timestamp};
+use crate::timeline::{self, Phase, View, phase};
 
 /// Row of the buttons on screen, counted from 1.
 const BUTTON_ROW: u16 = 6;
 const BUTTON_GAP: &str = "  ";
-
-const TOMATO: &str = "🍅";
-const PAUSED: &str = "⏸";
-
-const RESET: &str = "\x1b[0m";
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const RED: &str = "\x1b[31m";
-const REVERSE: &str = "\x1b[7m";
-
-/// What the timer is doing, as far as the buttons care.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Phase {
-    Focus,
-    Paused,
-    Break,
-}
-
-/// The phase of a running timer; `None` when nothing runs.
-fn phase(view: View) -> Option<Phase> {
-    match view {
-        View::Focus { .. } => Some(Phase::Focus),
-        View::Paused { .. } => Some(Phase::Paused),
-        // The break has begun even while the tab bar still reports the focus
-        // as done.
-        View::FocusDoneBreak { .. } | View::Break { .. } => Some(Phase::Break),
-        View::Idle | View::FocusDone | View::BreakOver => None,
-    }
-}
-
-/// The buttons with the key each stands for, then the key hints.
-type Parts = (Vec<(String, Key)>, Vec<(&'static str, &'static str)>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -54,6 +19,44 @@ enum Action {
     Back,
     EndBreak,
 }
+
+/// One button of a phase, which is also its key hint.
+struct Button {
+    action: Action,
+    /// The key as drawn on the button and in the hint.
+    key: &'static str,
+    /// The keys that press it, the drawn one among them.
+    keys: &'static [Key],
+    text: String,
+    hint: &'static str,
+}
+
+impl Button {
+    fn new(
+        action: Action,
+        (key, keys): (&'static str, &'static [Key]),
+        text: impl Into<String>,
+        hint: &'static str,
+    ) -> Self {
+        Self {
+            action,
+            key,
+            keys,
+            text: text.into(),
+            hint,
+        }
+    }
+
+    fn label(&self) -> String {
+        format!("{} {}", self.text, self.key)
+    }
+}
+
+const ENTER: (&str, &[Key]) = ("⏎", &[Key::Enter]);
+const P: (&str, &[Key]) = ("p", &[Key::Char('p')]);
+const S: (&str, &[Key]) = ("s", &[Key::Char('s')]);
+/// At home Enter pauses, and p still does, as it does when away.
+const ENTER_OR_P: (&str, &[Key]) = ("⏎", &[Key::Enter, Key::Char('p')]);
 
 /// The control popup's state: the timer it shows and what it drew for it.
 #[derive(Debug)]
@@ -71,52 +74,79 @@ struct Away {
     name: String,
 }
 
+/// The control popup while herdr looks up the home pane.
+#[derive(Debug)]
+pub struct Opening {
+    popup: ControlPopup,
+    lookup: Option<(Away, Call)>,
+}
+
+impl Opening {
+    /// The popup, away only once herdr answers that the home pane exists.
+    #[must_use]
+    pub fn finish(mut self) -> ControlPopup {
+        self.popup.away = self
+            .lookup
+            .and_then(|(away, call)| call.found_pane().then_some(away));
+        self.popup
+    }
+}
+
 impl ControlPopup {
-    /// Opens the popup for `timer`; `None` when no timer runs.
+    /// Starts opening the popup for `timer`; `None` when no timer runs.
+    /// [`Opening::finish`] waits for herdr.
     ///
     /// Away means a focus counts down, the user is in another pane and herdr
     /// still knows the home pane; a home herdr cannot find or does not answer
     /// about is treated as the current pane.
     #[must_use]
-    pub fn open(ctx: &Context, timer: &Timer) -> Option<Self> {
+    pub fn begin(ctx: &Context, timer: &Timer) -> Option<Opening> {
         let view = timeline::view(timer, Timestamp::now());
         let phase = phase(view)?;
-        let away = if phase == Phase::Focus {
-            away_target(ctx, timer)
-        } else {
-            None
-        };
-        Some(Self {
+        let lookup = match phase {
+            Phase::Focus => timer.away_target(ctx.pane.as_deref()),
+            Phase::Paused | Phase::Break => None,
+        }
+        .and_then(|(pane, name)| {
+            let call = ctx.herdr.get_pane(pane)?;
+            let pane = pane.to_owned();
+            Some((Away { pane, name }, call))
+        });
+        let popup = Self {
             timer: timer.clone(),
             phase,
-            away,
+            away: None,
             error: None,
-        })
+        };
+        Some(Opening { popup, lookup })
     }
 
     /// The screen, one string per line.
     #[must_use]
     pub fn lines(&self) -> Vec<String> {
         let view = timeline::view(&self.timer, Timestamp::now());
-        let (buttons, keys) = self.parts();
-        let buttons: Vec<String> = buttons
+        let buttons = self.buttons();
+        let drawn: Vec<String> = buttons
             .iter()
             .enumerate()
-            .map(|(i, (text, _))| {
+            .map(|(i, button)| {
+                let label = button.label();
                 if i == 0 {
-                    format!("{REVERSE} {text} {RESET}")
+                    format!("{REVERSE} {label} {RESET}")
                 } else {
-                    format!(" {text} ")
+                    format!(" {label} ")
                 }
             })
             .collect();
         let what = match (self.phase, self.timer.home_name.as_deref()) {
             (Phase::Break, _) | (_, None) => String::from("check your agents"),
-            (_, Some(name)) => format!("on {BOLD}{}{RESET}", printable(name)),
+            (_, Some(name)) => format!("on {BOLD}{}{RESET}", format::printable(name)),
         };
-        let hints: Vec<String> = keys
+        let hints: Vec<String> = buttons
             .iter()
-            .map(|(key, what)| format!("{BOLD}{key}{RESET} {what}"))
+            .map(|button| (button.key, button.hint))
+            .chain([("esc", "close")])
+            .map(|(key, what)| hint(key, what))
             .collect();
         vec![
             format!("{DIM}focus{RESET}"),
@@ -124,83 +154,73 @@ impl ControlPopup {
             format!("{BOLD}{}{RESET}", format::line(view)),
             what,
             String::new(),
-            buttons.join(BUTTON_GAP),
+            drawn.join(BUTTON_GAP),
             // Always one line, so the keys below do not jump when it appears.
             format!("{RED}{}{RESET}", self.error.unwrap_or_default()),
             hints.join("  "),
         ]
     }
 
-    /// The buttons with the key each stands for, the first being the primary
-    /// one, and the key hints.
-    fn parts(&self) -> Parts {
+    /// The buttons of this screen, the first being the primary one.
+    fn buttons(&self) -> Vec<Button> {
+        let stop = || Button::new(Action::Stop, S, "Stop", "stop");
         match (self.phase, &self.away) {
-            (Phase::Focus, Some(away)) => (
-                vec![
-                    (format!("Back to {} ⏎", away.name), Key::Enter),
-                    ("Pause p".into(), Key::Char('p')),
-                    ("Stop s".into(), Key::Char('s')),
-                ],
-                vec![
-                    ("⏎", "back"),
-                    ("p", "pause"),
-                    ("s", "stop"),
-                    ("esc", "close"),
-                ],
-            ),
-            (Phase::Focus, None) => (
-                vec![
-                    ("Pause ⏎".into(), Key::Enter),
-                    ("Stop s".into(), Key::Char('s')),
-                ],
-                vec![("⏎", "pause"), ("s", "stop"), ("esc", "close")],
-            ),
-            (Phase::Paused, _) => (
-                vec![
-                    ("Resume ⏎".into(), Key::Enter),
-                    ("Stop s".into(), Key::Char('s')),
-                ],
-                vec![("⏎", "resume"), ("s", "stop"), ("esc", "close")],
-            ),
-            (Phase::Break, _) => (
-                vec![("End break ⏎".into(), Key::Enter)],
-                vec![("⏎", "end break"), ("esc", "close")],
-            ),
+            (Phase::Focus, Some(away)) => vec![
+                Button::new(
+                    Action::Back,
+                    ENTER,
+                    format!("Back to {}", away.name),
+                    "back",
+                ),
+                Button::new(Action::Pause, P, "Pause", "pause"),
+                stop(),
+            ],
+            (Phase::Focus, None) => vec![
+                Button::new(Action::Pause, ENTER_OR_P, "Pause", "pause"),
+                stop(),
+            ],
+            (Phase::Paused, _) => vec![
+                Button::new(Action::Resume, ENTER, "Resume", "resume"),
+                stop(),
+            ],
+            (Phase::Break, _) => vec![Button::new(
+                Action::EndBreak,
+                ENTER,
+                "End break",
+                "end break",
+            )],
         }
     }
 
-    /// The key of the button under a click.
-    fn button_at(&self, col: u16, row: u16) -> Option<Key> {
+    /// The action of the button under a click.
+    fn button_at(&self, col: u16, row: u16) -> Option<Action> {
         if row != BUTTON_ROW {
             return None;
         }
-        let col = usize::from(col);
-        let mut first = 1;
-        for (text, key) in self.parts().0 {
-            // A button is its text with a space on each side.
-            let last = first + text.chars().count() + 1;
-            if (first..=last).contains(&col) {
-                return Some(key);
-            }
-            first = last + 1 + BUTTON_GAP.len();
-        }
-        None
+        let buttons = self.buttons();
+        let labels: Vec<String> = buttons.iter().map(Button::label).collect();
+        let index = panel::hit(&labels, 1, BUTTON_GAP.len(), col)?;
+        Some(buttons[index].action)
     }
 
-    /// Acts on one key; a click acts as the key of the button it hits.
+    /// Acts on one key; a click acts as the button it hits.
     pub fn press(&mut self, key: Key, ctx: &Context) -> Outcome {
-        let key = match key {
+        let action = match key {
             Key::Click { col, row } => match self.button_at(col, row) {
-                Some(key) => key,
                 None => return Outcome::Stay,
+                hit => hit,
             },
-            key => key,
+            key => self
+                .buttons()
+                .into_iter()
+                .find(|button| button.keys.contains(&key))
+                .map(|button| button.action),
         };
         self.error = None;
         if key == Key::Esc {
             return Outcome::Close;
         }
-        let Some(action) = self.action(key) else {
+        let Some(action) = action else {
             return Outcome::Stay;
         };
         // Reread: the timer may have changed since the popup was drawn, and a
@@ -209,27 +229,9 @@ impl ControlPopup {
         let now = Timestamp::now();
         let view = timeline::view(&saved, now);
         if !self.shows(&saved, view) {
-            return match ControlPopup::open(ctx, &saved) {
-                Some(fresh) => {
-                    *self = fresh;
-                    Outcome::Stay
-                }
-                None => Outcome::Idle,
-            };
+            return Outcome::Reopen(saved);
         }
         self.act(action, ctx, &saved, view, now)
-    }
-
-    /// What `key` asks for on this screen.
-    fn action(&self, key: Key) -> Option<Action> {
-        match (self.phase, key) {
-            (Phase::Focus, Key::Enter) if self.away.is_some() => Some(Action::Back),
-            (Phase::Focus, Key::Enter | Key::Char('p')) => Some(Action::Pause),
-            (Phase::Focus | Phase::Paused, Key::Char('s')) => Some(Action::Stop),
-            (Phase::Paused, Key::Enter) => Some(Action::Resume),
-            (Phase::Break, Key::Enter) => Some(Action::EndBreak),
-            _ => None,
-        }
     }
 
     /// Whether `saved` is still the timer this screen was drawn for.
@@ -248,45 +250,44 @@ impl ControlPopup {
         view: View,
         now: Timestamp,
     ) -> Outcome {
-        let home = saved.home_pane.as_deref();
-        let next = match (action, view) {
+        // Beside the new timer, the view it leads to, which picks the sidebar
+        // token. A break shows no token, so ending one leaves the sidebar be.
+        let (next, leads_to) = match (action, view) {
             (Action::Back, _) => return self.back(ctx),
-            (Action::Pause, View::Focus { left_secs }) => Timer {
-                mode: Mode::Paused,
-                ends_at: None,
-                left_secs: Some(left_secs),
-                ..saved.clone()
-            },
-            (Action::Resume, View::Paused { left_secs }) => Timer {
-                mode: Mode::Focus,
-                ends_at: Some(Timestamp(now.0 + left_secs)),
-                left_secs: None,
-                ..saved.clone()
-            },
-            (Action::Stop | Action::EndBreak, _) => ended(saved),
+            (Action::Pause, View::Focus { left_secs }) => (
+                Timer {
+                    mode: Mode::Paused,
+                    ends_at: None,
+                    left_secs: Some(left_secs),
+                    ..saved.clone()
+                },
+                Some(View::Paused { left_secs }),
+            ),
+            (Action::Resume, View::Paused { left_secs }) => (
+                Timer {
+                    mode: Mode::Focus,
+                    ends_at: Some(Timestamp(now.0 + left_secs)),
+                    left_secs: None,
+                    ..saved.clone()
+                },
+                Some(View::Focus { left_secs }),
+            ),
+            (Action::Stop, _) => (ended(saved), Some(View::Idle)),
+            (Action::EndBreak, _) => (ended(saved), None),
             // The screen was checked against the timer, so no other pair.
             _ => return Outcome::Stay,
         };
-        let Some(path) = ctx.timer_path.as_deref() else {
-            self.error = Some(NOT_SAVED);
-            return Outcome::Stay;
-        };
-        if state::save(path, &next).is_err() {
-            self.error = Some(NOT_SAVED);
+        if let Err(message) = ctx.save(&next) {
+            self.error = Some(message);
             return Outcome::Stay;
         }
         // The tab bar sets the token again every second, so a silent herdr
         // only delays it.
-        if let Some(pane) = home {
-            let call = match action {
-                Action::Pause => ctx.herdr.set_focus_token(pane, PAUSED),
-                Action::Resume => ctx.herdr.set_focus_token(pane, TOMATO),
-                Action::Stop => ctx.herdr.clear_focus_token(pane),
-                Action::Back | Action::EndBreak => None,
-            };
-            if let Some(call) = call {
-                let _ = call.finish();
-            }
+        if let (Some(pane), Some(view)) = (saved.home_pane.as_deref(), leads_to) {
+            finish_quietly(
+                ctx.herdr
+                    .report_focus_token(pane, format::focus_token(view)),
+            );
         }
         Outcome::Close
     }
@@ -321,65 +322,9 @@ fn ended(timer: &Timer) -> Timer {
     }
 }
 
-fn away_target(ctx: &Context, timer: &Timer) -> Option<Away> {
-    let pane = timer.home_pane.as_deref().filter(|p| !p.is_empty())?;
-    let here = ctx.pane.as_deref()?;
-    if here == pane {
-        return None;
-    }
-    let name = printable(timer.home_name.as_deref()?);
-    if name.is_empty() {
-        return None;
-    }
-    let exists = ctx
-        .herdr
-        .get_pane(pane)
-        .and_then(|call| call.finish())
-        .is_some_and(|reply| is_pane_reply(&reply));
-    exists.then(|| Away {
-        pane: pane.to_owned(),
-        name,
-    })
-}
-
-/// `text` without control characters, so it cannot break the screen.
-fn printable(text: &str) -> String {
-    text.chars().filter(|c| !c.is_control()).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::panel::is_running;
-
-    #[test]
-    fn running_states_have_a_phase() {
-        assert_eq!(phase(View::Focus { left_secs: 5 }), Some(Phase::Focus));
-        assert_eq!(phase(View::Paused { left_secs: 5 }), Some(Phase::Paused));
-        assert_eq!(phase(View::Break { left_secs: 5 }), Some(Phase::Break));
-        assert_eq!(
-            phase(View::FocusDoneBreak { break_mins: 5 }),
-            Some(Phase::Break)
-        );
-        assert_eq!(phase(View::FocusDone), None);
-        assert_eq!(phase(View::BreakOver), None);
-        assert_eq!(phase(View::Idle), None);
-    }
-
-    #[test]
-    fn a_phase_exists_exactly_when_the_timer_runs() {
-        for view in [
-            View::Idle,
-            View::Focus { left_secs: 1 },
-            View::Paused { left_secs: 1 },
-            View::FocusDoneBreak { break_mins: 2 },
-            View::FocusDone,
-            View::Break { left_secs: 1 },
-            View::BreakOver,
-        ] {
-            assert_eq!(phase(view).is_some(), is_running(view), "{view:?}");
-        }
-    }
 
     #[test]
     fn buttons_are_found_where_they_are_drawn() {
@@ -395,11 +340,11 @@ mod tests {
             error: None,
         };
         // ` Resume ⏎ ` is 10 columns, a gap of 2, then ` Stop s `.
-        assert_eq!(popup.button_at(1, BUTTON_ROW), Some(Key::Enter));
-        assert_eq!(popup.button_at(10, BUTTON_ROW), Some(Key::Enter));
+        assert_eq!(popup.button_at(1, BUTTON_ROW), Some(Action::Resume));
+        assert_eq!(popup.button_at(10, BUTTON_ROW), Some(Action::Resume));
         assert_eq!(popup.button_at(11, BUTTON_ROW), None);
-        assert_eq!(popup.button_at(13, BUTTON_ROW), Some(Key::Char('s')));
-        assert_eq!(popup.button_at(20, BUTTON_ROW), Some(Key::Char('s')));
+        assert_eq!(popup.button_at(13, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(20, BUTTON_ROW), Some(Action::Stop));
         assert_eq!(popup.button_at(21, BUTTON_ROW), None);
         assert_eq!(popup.button_at(2, BUTTON_ROW + 1), None);
     }

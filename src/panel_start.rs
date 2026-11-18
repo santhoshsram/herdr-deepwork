@@ -1,17 +1,21 @@
 //! The start popup: pick a focus and a break length, then start.
 
-use crate::herdr::Herdr;
+use std::sync::LazyLock;
+
+use crate::format;
+use crate::herdr::{Call, finish_quietly};
 use crate::keys::Key;
-use crate::panel::{Context, Outcome, is_running};
-use crate::state::{self, Mode, Timer, Timestamp};
+use crate::panel::{
+    self, BOLD, Context, DIM, NOT_ANSWERING, Outcome, RED, RESET, REVERSE, hint, is_running,
+};
+use crate::state::{BREAK_CHOICES, FOCUS_RANGE, Mode, Timer, Timestamp};
 use crate::timeline;
 
 const PRESETS: [u16; 3] = [15, 25, 50];
-const BREAKS: [u8; 4] = [0, 2, 5, 10];
 /// Index of the custom chip on the Focus row, after the presets.
 const CUSTOM: usize = PRESETS.len();
-/// Index of the 5 minute break, the first-run choice.
-const DEFAULT_BREAK: usize = 2;
+/// The name of a pane herdr cannot describe.
+const UNNAMED: &str = "home";
 const MAX_NAME: usize = 24;
 const MAX_DIGITS: usize = 3;
 /// Rows of the two option lines on screen, counted from 1.
@@ -19,17 +23,10 @@ const FOCUS_ROW: u16 = 5;
 const BREAK_ROW: u16 = 7;
 /// Columns taken by `Focus  ` and `Break  `, before the first chip.
 const LABEL_WIDTH: usize = 7;
-const FOCUS_RANGE: std::ops::RangeInclusive<u16> = 1..=180;
+const CHIP_GAP: &str = " ";
 
-const RANGE_ERROR: &str = "1 to 180";
-const NOT_ANSWERING: &str = "herdr is not answering";
-const NOT_SAVED: &str = "Could not save";
-
-const RESET: &str = "\x1b[0m";
-const BOLD: &str = "\x1b[1m";
-const DIM: &str = "\x1b[2m";
-const RED: &str = "\x1b[31m";
-const REVERSE: &str = "\x1b[7m";
+static RANGE_ERROR: LazyLock<String> =
+    LazyLock::new(|| format!("{} to {}", FOCUS_RANGE.start(), FOCUS_RANGE.end()));
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Row {
@@ -52,17 +49,36 @@ pub struct StartPopup {
     error: Option<&'static str>,
 }
 
-/// Opens the popup for the pane in `ctx`, preselecting the choices in `timer`.
-///
-/// A pane herdr cannot describe is named `home`.
+/// The start popup while herdr looks up the pane it opens for.
+#[derive(Debug)]
+pub struct Opening {
+    popup: StartPopup,
+    lookup: Option<Call>,
+}
+
+/// Starts opening the popup for the pane in `ctx`, preselecting the choices
+/// in `timer`; [`Opening::finish`] waits for herdr.
 #[must_use]
-pub fn open(ctx: &Context, timer: &Timer) -> StartPopup {
-    let name = ctx
-        .pane
-        .as_deref()
-        .and_then(|pane| ctx.herdr.get_pane(pane)?.finish())
-        .map_or_else(|| String::from("home"), |reply| home_name(&reply));
-    StartPopup::new(name, timer)
+pub fn begin(ctx: &Context, timer: &Timer) -> Opening {
+    Opening {
+        popup: StartPopup::new(String::from(UNNAMED), timer),
+        lookup: ctx
+            .pane
+            .as_deref()
+            .and_then(|pane| ctx.herdr.get_pane(pane)),
+    }
+}
+
+impl Opening {
+    /// The popup, named from herdr's answer; a pane herdr cannot describe is
+    /// named `home`.
+    #[must_use]
+    pub fn finish(mut self) -> StartPopup {
+        if let Some(reply) = self.lookup.and_then(Call::finish) {
+            self.popup.name = home_name(&reply);
+        }
+        self.popup
+    }
 }
 
 /// The name for a pane from the reply to `pane get`: its terminal title,
@@ -74,13 +90,13 @@ pub fn home_name(reply: &str) -> String {
         .and_then(|v| v.pointer("/result/pane").cloned());
     let text = |key: &str| {
         let raw = pane.as_ref()?.get(key)?.as_str()?;
-        let clean: String = raw.chars().filter(|c| !c.is_control()).collect();
+        let clean = format::printable(raw);
         let clean = clean.trim();
         (!clean.is_empty()).then(|| clean.to_owned())
     };
     let name = text("terminal_title_stripped")
         .or_else(|| text("agent"))
-        .unwrap_or_else(|| String::from("home"));
+        .unwrap_or_else(|| String::from(UNNAMED));
     if name.chars().count() > MAX_NAME {
         let head: String = name.chars().take(MAX_NAME - 1).collect();
         format!("{head}…")
@@ -97,14 +113,15 @@ impl StartPopup {
             Some(_) => timer.last_custom_mins,
             None => Some(timer.last_focus_mins),
         };
+        let break_index = |mins: u8| BREAK_CHOICES.iter().position(|&m| m == mins);
+        let break_sel = break_index(timer.last_break_mins)
+            .or_else(|| break_index(Timer::default().last_break_mins))
+            .expect("the first-run break is one of the choices");
         Self {
             name,
             row: Row::Focus,
             focus_sel: preset.unwrap_or(CUSTOM),
-            break_sel: BREAKS
-                .iter()
-                .position(|&m| m == timer.last_break_mins)
-                .unwrap_or(DEFAULT_BREAK),
+            break_sel,
             custom: custom.map(|m| m.to_string()).unwrap_or_default(),
             typing: false,
             error: None,
@@ -129,11 +146,10 @@ impl StartPopup {
                 .enumerate()
                 .map(|(i, label)| self.chip(row, i, label))
                 .collect();
-            chips.join(" ")
+            chips.join(CHIP_GAP)
         };
         let focus = chips(Row::Focus, self.focus_labels());
         let breaks = chips(Row::Break, break_labels());
-        let hint = |key: &str, what: &str| format!("{BOLD}{key}{RESET} {what}");
         vec![
             format!("{DIM}focus{RESET}"),
             String::new(),
@@ -168,17 +184,8 @@ impl StartPopup {
             BREAK_ROW => (Row::Break, break_labels()),
             _ => return None,
         };
-        let col = usize::from(col);
-        let mut first = LABEL_WIDTH + 1;
-        for (index, label) in labels.iter().enumerate() {
-            // A chip is its label with a space on each side.
-            let last = first + label.chars().count() + 1;
-            if (first..=last).contains(&col) {
-                return Some((which, index));
-            }
-            first = last + 2;
-        }
-        None
+        let index = panel::hit(&labels, LABEL_WIDTH + 1, CHIP_GAP.len(), col)?;
+        Some((which, index))
     }
 
     /// The custom chip: the number once selected, else the word `custom`.
@@ -263,7 +270,7 @@ impl StartPopup {
         self.typing = false;
         let (sel, last) = match self.row {
             Row::Focus => (&mut self.focus_sel, CUSTOM),
-            Row::Break => (&mut self.break_sel, BREAKS.len() - 1),
+            Row::Break => (&mut self.break_sel, BREAK_CHOICES.len() - 1),
         };
         *sel = if forward {
             (*sel + 1).min(last)
@@ -289,36 +296,32 @@ impl StartPopup {
     /// the popup opened.
     fn start(&mut self, ctx: &Context) -> Outcome {
         let Some(minutes) = self.minutes() else {
-            self.error = Some(RANGE_ERROR);
+            self.error = Some(RANGE_ERROR.as_str());
             return Outcome::Stay;
         };
         // Reread: another popup or a timer may have started since this opened.
         let saved = ctx.load();
         let now = Timestamp::now();
         if is_running(timeline::view(&saved, now)) {
-            return Outcome::Running;
+            return Outcome::Reopen(saved);
         }
         let Some(pane) = ctx.pane.as_deref() else {
             self.error = Some(NOT_ANSWERING);
             return Outcome::Stay;
         };
-        let Some(path) = ctx.timer_path.as_deref() else {
-            self.error = Some(NOT_SAVED);
-            return Outcome::Stay;
-        };
         let started = self.started(&saved, pane, minutes, now);
-        if state::save(path, &started).is_err() {
-            self.error = Some(NOT_SAVED);
+        if let Err(message) = ctx.save(&started) {
+            self.error = Some(message);
             return Outcome::Stay;
         }
         // The tab bar sets the token again every second, so a silent herdr
         // only delays it.
-        set_tomato(&ctx.herdr, pane);
+        finish_quietly(ctx.herdr.report_focus_token(pane, Some(format::TOMATO)));
         Outcome::Close
     }
 
     fn started(&self, saved: &Timer, pane: &str, minutes: u16, now: Timestamp) -> Timer {
-        let break_mins = BREAKS[self.break_sel];
+        let break_mins = BREAK_CHOICES[self.break_sel];
         // A custom number equal to a preset is remembered as the preset.
         let last_custom_mins = if PRESETS.contains(&minutes) {
             saved.last_custom_mins
@@ -342,7 +345,7 @@ impl StartPopup {
 }
 
 fn break_labels() -> Vec<String> {
-    BREAKS
+    BREAK_CHOICES
         .iter()
         .map(|&m| {
             if m == 0 {
@@ -352,12 +355,6 @@ fn break_labels() -> Vec<String> {
             }
         })
         .collect()
-}
-
-fn set_tomato(herdr: &Herdr, pane: &str) {
-    if let Some(call) = herdr.set_focus_token(pane, "🍅") {
-        let _ = call.finish();
-    }
 }
 
 #[cfg(test)]

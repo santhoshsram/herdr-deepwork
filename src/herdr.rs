@@ -53,39 +53,37 @@ impl Herdr {
         })
     }
 
-    /// Starts a call that sets the sidebar token `focus` on `pane`.
+    /// Starts a call that sets the sidebar token `focus` on `pane` to
+    /// `token`, or clears it when `token` is `None`.
     #[must_use]
-    pub fn set_focus_token(&self, pane: &str, value: &str) -> Option<Call> {
-        let token = format!("focus={value}");
+    pub fn report_focus_token(&self, pane: &str, token: Option<&str>) -> Option<Call> {
+        let set = token.map(|value| format!("focus={value}"));
+        let (flag, value) = match &set {
+            Some(set) => ("--token", set.as_str()),
+            None => ("--clear-token", "focus"),
+        };
         self.spawn(&[
             "pane",
             "report-metadata",
             pane,
             "--source",
             "herdr-focus",
-            "--token",
-            &token,
+            flag,
+            value,
         ])
     }
 
-    /// Starts a call that clears the sidebar token `focus` on `pane`.
-    #[must_use]
-    pub fn clear_focus_token(&self, pane: &str) -> Option<Call> {
-        self.spawn(&[
-            "pane",
-            "report-metadata",
-            pane,
-            "--source",
-            "herdr-focus",
-            "--clear-token",
-            "focus",
-        ])
-    }
-
-    /// Starts a call that looks `pane` up.
+    /// Starts a call that looks `pane` up; [`Call::found_pane`] reads the
+    /// answer.
     #[must_use]
     pub fn get_pane(&self, pane: &str) -> Option<Call> {
         self.spawn(&["pane", "get", pane])
+    }
+
+    /// Whether herdr answers in time that `pane` exists.
+    #[must_use]
+    pub fn has_pane(&self, pane: &str) -> bool {
+        self.get_pane(pane).is_some_and(Call::found_pane)
     }
 }
 
@@ -113,11 +111,24 @@ impl Call {
             }
         }
     }
+
+    /// Waits for a `pane get` call; whether it answered with a pane.
+    #[must_use]
+    pub fn found_pane(self) -> bool {
+        self.finish().is_some_and(|reply| is_pane_reply(&reply))
+    }
+}
+
+/// Waits for a call whose answer does not matter, so its effect lands before
+/// the process exits.
+pub fn finish_quietly(call: Option<Call>) {
+    if let Some(call) = call {
+        let _ = call.finish();
+    }
 }
 
 /// Whether the reply to `pane get` describes a pane.
-#[must_use]
-pub fn is_pane_reply(reply: &str) -> bool {
+fn is_pane_reply(reply: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(reply)
         .is_ok_and(|v| v.pointer("/result/pane").is_some_and(|p| p.is_object()))
 }

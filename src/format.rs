@@ -1,9 +1,22 @@
-//! The tab bar text for each state.
+//! The tab bar text and the sidebar token for each state.
 
 use crate::timeline::View;
 
-/// The line for the tab bar when no timer shows.
-pub const IDLE_LINE: &str = "🍅";
+/// The tab bar line when no timer shows, the head of every other line, and
+/// the sidebar token while a focus counts down.
+pub const TOMATO: &str = "🍅";
+/// The sidebar token while a focus is held.
+pub const PAUSED: &str = "⏸";
+
+/// The sidebar `focus` token for `view`; `None` when the token is cleared.
+#[must_use]
+pub fn focus_token(view: View) -> Option<&'static str> {
+    match view {
+        View::Focus { .. } => Some(TOMATO),
+        View::Paused { .. } => Some(PAUSED),
+        _ => None,
+    }
+}
 
 /// A duration as the tab bar shows it: minutes rounded up, `25m` or `1h 05m`.
 #[must_use]
@@ -16,20 +29,26 @@ pub fn duration(secs: u64) -> String {
     }
 }
 
+/// `text` without control characters, so it cannot break a line of output.
+#[must_use]
+pub fn printable(text: &str) -> String {
+    text.chars().filter(|c| !c.is_control()).collect()
+}
+
 /// The tab bar line for `view`.
 #[must_use]
 pub fn line(view: View) -> String {
     match view {
-        View::Idle => IDLE_LINE.to_string(),
-        View::Focus { left_secs } => format!("{IDLE_LINE} {}", duration(left_secs)),
-        View::Paused { left_secs } => format!("{IDLE_LINE} Paused {}", duration(left_secs)),
+        View::Idle => TOMATO.to_string(),
+        View::Focus { left_secs } => format!("{TOMATO} {}", duration(left_secs)),
+        View::Paused { left_secs } => format!("{TOMATO} Paused {}", duration(left_secs)),
         View::FocusDoneBreak { break_mins } => format!(
-            "{IDLE_LINE} Focus done · break {}",
+            "{TOMATO} Focus done · break {}",
             duration(u64::from(break_mins) * 60)
         ),
-        View::FocusDone => format!("{IDLE_LINE} Focus done"),
-        View::Break { left_secs } => format!("{IDLE_LINE} Break {}", duration(left_secs)),
-        View::BreakOver => format!("{IDLE_LINE} Break over"),
+        View::FocusDone => format!("{TOMATO} Focus done"),
+        View::Break { left_secs } => format!("{TOMATO} Break {}", duration(left_secs)),
+        View::BreakOver => format!("{TOMATO} Break over"),
     }
 }
 
@@ -46,6 +65,12 @@ mod tests {
         assert_eq!(duration(59 * 60 + 1), "1h 00m");
         assert_eq!(duration(65 * 60), "1h 05m");
         assert_eq!(duration(180 * 60), "3h 00m");
+    }
+
+    #[test]
+    fn control_characters_are_dropped() {
+        assert_eq!(printable("wo\u{1b}[31m\trk\u{7}\n"), "wo[31mrk");
+        assert_eq!(printable("work ✓"), "work ✓");
     }
 
     #[test]

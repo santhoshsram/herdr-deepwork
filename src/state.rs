@@ -8,8 +8,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::de::{self, Deserializer};
 use serde::{Deserialize, Serialize, Serializer};
 
-const BREAK_CHOICES: [u8; 4] = [0, 2, 5, 10];
-const FOCUS_RANGE: std::ops::RangeInclusive<u16> = 1..=180;
+use crate::format;
+
+/// The break lengths a timer may hold, in minutes; 0 is no break.
+pub const BREAK_CHOICES: [u8; 4] = [0, 2, 5, 10];
+/// The focus lengths a timer may hold, in minutes.
+pub const FOCUS_RANGE: std::ops::RangeInclusive<u16> = 1..=180;
 
 /// Why a timer file is not a valid timer.
 #[derive(Debug)]
@@ -268,6 +272,19 @@ impl Timer {
         Ok(timer)
     }
 
+    /// The home pane and its printable name when `active` is another pane;
+    /// `None` when either pane is unknown or the name prints as nothing.
+    #[must_use]
+    pub fn away_target(&self, active: Option<&str>) -> Option<(&str, String)> {
+        let pane = self.home_pane.as_deref().filter(|p| !p.is_empty())?;
+        let active = active.filter(|a| !a.is_empty())?;
+        if active == pane {
+            return None;
+        }
+        let name = format::printable(self.home_name.as_deref()?);
+        (!name.is_empty()).then_some((pane, name))
+    }
+
     fn validate(&self) -> Result<(), StateError> {
         let invalid = StateError::Invalid;
         if !BREAK_CHOICES.contains(&self.break_mins) {
@@ -340,13 +357,25 @@ pub fn load(path: &Path) -> Result<Timer, StateError> {
     Timer::parse(&text)
 }
 
+/// The timer file for the current session; `None` when no state folder is
+/// known.
+#[must_use]
+pub fn current_path() -> Option<PathBuf> {
+    state_dir().map(|dir| timer_path(&dir, &session_name()))
+}
+
+/// The timer at `path`, or the first-run timer when there is no path or the
+/// file is missing or not valid.
+#[must_use]
+pub fn load_or_default(path: Option<&Path>) -> Timer {
+    path.and_then(|path| load(path).ok()).unwrap_or_default()
+}
+
 /// The timer for the current session, or the first-run timer when the file
 /// is missing or not valid.
 #[must_use]
 pub fn load_current() -> Timer {
-    state_dir()
-        .and_then(|dir| load(&timer_path(&dir, &session_name())).ok())
-        .unwrap_or_default()
+    load_or_default(current_path().as_deref())
 }
 
 /// Writes `timer` to `path`, creating the folders, by writing a sibling file
@@ -411,6 +440,27 @@ mod tests {
     #[test]
     fn idle_file_parses() {
         assert_eq!(Timer::parse(IDLE).expect("valid"), Timer::default());
+    }
+
+    #[test]
+    fn away_needs_another_pane_and_a_name() {
+        let timer = Timer {
+            home_pane: Some("p1".to_string()),
+            home_name: Some("work".to_string()),
+            ..Timer::default()
+        };
+        assert_eq!(
+            timer.away_target(Some("p2")),
+            Some(("p1", "work".to_string()))
+        );
+        assert_eq!(timer.away_target(Some("p1")), None);
+        assert_eq!(timer.away_target(None), None);
+        assert_eq!(timer.away_target(Some("")), None);
+        let unnamed = Timer {
+            home_name: Some("\u{7}".to_string()),
+            ..timer
+        };
+        assert_eq!(unnamed.away_target(Some("p2")), None);
     }
 
     #[test]

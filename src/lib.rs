@@ -10,5 +10,4 @@ pub mod state;
 pub mod status;
 pub mod timeline;
 
-pub use format::IDLE_LINE;
 pub use status::status_line;

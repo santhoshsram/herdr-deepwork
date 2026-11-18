@@ -55,6 +55,4 @@ jobs:
           --repo "$REPO"
           --title "$TAG"
           --generate-notes
-          dist/herdr-focus-macos-arm64
-          dist/herdr-focus-linux-x86_64
-          dist/herdr-focus-linux-arm64
+          dist/*

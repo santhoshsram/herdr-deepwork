@@ -7,10 +7,10 @@ use std::time::Duration;
 
 use crate::herdr::Herdr;
 use crate::keys::KeyReader;
-use crate::panel_control::ControlPopup;
+use crate::panel_control::{self, ControlPopup};
 use crate::panel_start::{self, StartPopup};
 use crate::state::{self, Timer};
-use crate::timeline::View;
+use crate::timeline::{self, View};
 
 /// How long herdr gets to answer a call the popup waits on.
 const HERDR_BUDGET: Duration = Duration::from_secs(1);
@@ -20,6 +20,28 @@ const HIDE_CURSOR: &str = "\x1b[?25l";
 const SHOW_CURSOR: &str = "\x1b[?25h";
 const MOUSE_ON: &str = "\x1b[?1000h\x1b[?1006h";
 const MOUSE_OFF: &str = "\x1b[?1006l\x1b[?1000l";
+
+/// Ends any style below.
+pub const RESET: &str = "\x1b[0m";
+/// Bold text.
+pub const BOLD: &str = "\x1b[1m";
+/// Faint text.
+pub const DIM: &str = "\x1b[2m";
+/// Red text.
+pub const RED: &str = "\x1b[31m";
+/// Swapped foreground and background.
+pub const REVERSE: &str = "\x1b[7m";
+
+/// Shown when herdr cannot be reached or does not answer in time.
+pub const NOT_ANSWERING: &str = "herdr is not answering";
+/// Shown when the timer file cannot be written.
+pub const NOT_SAVED: &str = "Could not save";
+
+/// A key hint: the key in bold, then what it does.
+#[must_use]
+pub fn hint(key: &str, what: &str) -> String {
+    format!("{BOLD}{key}{RESET} {what}")
+}
 
 /// What a popup needs from outside: herdr, the timer file, the pane the user
 /// was in.
@@ -37,8 +59,7 @@ impl Context {
     fn from_env() -> Self {
         Self {
             herdr: Herdr::from_env(HERDR_BUDGET),
-            timer_path: state::state_dir()
-                .map(|dir| state::timer_path(&dir, &state::session_name())),
+            timer_path: state::current_path(),
             pane: current_pane(),
         }
     }
@@ -46,10 +67,17 @@ impl Context {
     /// The saved timer, or the first-run timer when it is missing or invalid.
     #[must_use]
     pub fn load(&self) -> Timer {
-        self.timer_path
-            .as_deref()
-            .and_then(|path| state::load(path).ok())
-            .unwrap_or_default()
+        state::load_or_default(self.timer_path.as_deref())
+    }
+
+    /// Writes `timer` to the timer file.
+    ///
+    /// # Errors
+    /// Returns [`NOT_SAVED`], the message to show, when no state folder is
+    /// known or the file cannot be written.
+    pub fn save(&self, timer: &Timer) -> Result<(), &'static str> {
+        let path = self.timer_path.as_deref().ok_or(NOT_SAVED)?;
+        state::save(path, timer).map_err(|_| NOT_SAVED)
     }
 }
 
@@ -74,10 +102,24 @@ fn current_pane() -> Option<String> {
 /// opens over it.
 #[must_use]
 pub fn is_running(view: View) -> bool {
-    matches!(
-        view,
-        View::Focus { .. } | View::Paused { .. } | View::FocusDoneBreak { .. } | View::Break { .. }
-    )
+    timeline::phase(view).is_some()
+}
+
+/// The index of the label under column `col` in a row drawn from column
+/// `first_col`, each label with a space on either side and `gap` columns
+/// between them; columns count from 1.
+#[must_use]
+pub fn hit<S: AsRef<str>>(labels: &[S], first_col: usize, gap: usize, col: u16) -> Option<usize> {
+    let col = usize::from(col);
+    let mut first = first_col;
+    for (index, label) in labels.iter().enumerate() {
+        let last = first + label.as_ref().chars().count() + 1;
+        if (first..=last).contains(&col) {
+            return Some(index);
+        }
+        first = last + 1 + gap;
+    }
+    None
 }
 
 /// The terminal in the mode the popup needs, put back on drop.
@@ -145,38 +187,66 @@ enum Screen {
 }
 
 /// What a screen does with a key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
     /// Keep the popup open.
     Stay,
     /// Close the popup.
     Close,
-    /// A timer runs, so the control popup takes over.
-    Running,
-    /// No timer runs, so the start popup takes over.
-    Idle,
+    /// The saved timer is not the one on screen, so the popup that fits it
+    /// takes over.
+    Reopen(Timer),
 }
 
-/// The popup that fits the timer: control while it runs, else start.
-fn screen_for(ctx: &Context, timer: &Timer) -> Screen {
-    match ControlPopup::open(ctx, timer) {
-        Some(popup) => Screen::Control(popup),
-        None => Screen::Start(panel_start::open(ctx, timer)),
+/// A popup waiting for herdr to answer about a pane.
+enum Opening {
+    Start(panel_start::Opening),
+    Control(panel_control::Opening),
+}
+
+impl Opening {
+    /// Starts opening the popup that fits the timer: control while it runs,
+    /// else start.
+    fn begin(ctx: &Context, timer: &Timer) -> Self {
+        match ControlPopup::begin(ctx, timer) {
+            Some(opening) => Self::Control(opening),
+            None => Self::Start(panel_start::begin(ctx, timer)),
+        }
     }
+
+    fn finish(self) -> Screen {
+        match self {
+            Self::Start(opening) => Screen::Start(opening.finish()),
+            Self::Control(opening) => Screen::Control(opening.finish()),
+        }
+    }
+}
+
+/// The popup that fits the timer, once herdr has answered.
+fn screen_for(ctx: &Context, timer: &Timer) -> Screen {
+    Opening::begin(ctx, timer).finish()
 }
 
 /// Runs the popup until a key closes it or stdin reaches EOF.
 #[must_use]
 pub fn run() -> ExitCode {
     let ctx = Context::from_env();
-    let mut screen = screen_for(&ctx, &ctx.load());
+    // herdr answers while stty sets up the terminal.
+    let opening = Opening::begin(&ctx, &ctx.load());
     let _terminal = Terminal::enter();
+    let mut screen = opening.finish();
     let mut keys = KeyReader::from_stdin();
+    let mut shown = Vec::new();
     loop {
-        draw_frame(&match &screen {
+        let frame = match &screen {
             Screen::Start(popup) => popup.lines(),
             Screen::Control(popup) => popup.lines(),
-        });
+        };
+        // Clearing to draw the same frame again would only flicker.
+        if frame != shown {
+            draw_frame(&frame);
+            shown = frame;
+        }
         let Some(key) = keys.next_key() else { break };
         let outcome = match &mut screen {
             Screen::Start(popup) => popup.press(key, &ctx),
@@ -185,7 +255,7 @@ pub fn run() -> ExitCode {
         match outcome {
             Outcome::Stay => {}
             Outcome::Close => break,
-            Outcome::Running | Outcome::Idle => screen = screen_for(&ctx, &ctx.load()),
+            Outcome::Reopen(timer) => screen = screen_for(&ctx, &timer),
         }
     }
     ExitCode::SUCCESS
