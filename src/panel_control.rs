@@ -9,7 +9,8 @@ use crate::timeline::{self, Phase, View, phase};
 
 /// Row of the buttons on screen, counted from 1.
 const BUTTON_ROW: u16 = 6;
-const BUTTON_GAP: &str = "  ";
+/// One column, so a 24-character home name still fits the popup.
+const BUTTON_GAP: &str = " ";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -340,13 +341,13 @@ mod tests {
             away: None,
             error: None,
         };
-        // ` Resume ⏎ ` is 10 columns, a gap of 2, then ` Stop s `.
+        // ` Resume ⏎ ` is 10 columns, a gap of 1, then ` Stop s `.
         assert_eq!(popup.button_at(1, BUTTON_ROW), Some(Action::Resume));
         assert_eq!(popup.button_at(10, BUTTON_ROW), Some(Action::Resume));
         assert_eq!(popup.button_at(11, BUTTON_ROW), None);
-        assert_eq!(popup.button_at(13, BUTTON_ROW), Some(Action::Stop));
-        assert_eq!(popup.button_at(20, BUTTON_ROW), Some(Action::Stop));
-        assert_eq!(popup.button_at(21, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(12, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(19, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(20, BUTTON_ROW), None);
         assert_eq!(popup.button_at(2, BUTTON_ROW + 1), None);
     }
 

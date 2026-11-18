@@ -164,6 +164,9 @@ impl StartPopup {
                 hint("⏎", "start"),
                 hint("← →", "change"),
                 hint("↑ ↓", "focus / break"),
+            ]
+            .join("  "),
+            [
                 hint("type a number", "custom minutes"),
                 hint("esc", "close"),
             ]
