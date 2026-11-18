@@ -35,7 +35,7 @@ choice.
 
 | State | Status |
 |---|---|
-| Idle | `🍅` (dim) |
+| Idle | `🍅` (herdr may dim it) |
 | Focus | `🍅 18:42` |
 | Focus, away | `🍅 18:42 ← <home>` |
 | Paused | `🍅 Paused 12:05` |

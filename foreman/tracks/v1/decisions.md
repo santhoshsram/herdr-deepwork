@@ -46,3 +46,25 @@ cell is written `\|`.
 | user | challenger r1 FIX §Users and journeys: no Install or End break journey | settled | J8 End break, J9 Install | `spec §Users and journeys` |
 | ux | challenger r1 FIX §Users and journeys: vocabulary drift | settled | "nudge" and `<home>` throughout | `spec §Users and journeys`, `spec §Experience` |
 | eng | challenger r1 FIX §Contracts: manifest install step | settled | `[[build]]` installs the prebuilt release binary | `spec §Contracts` |
+| eng | challenger r2 FIX §Contracts: transitions the clock already passed | settled | Timeline derived from stored times; passed states skipped | `spec §Contracts` Timeline, AC11 |
+| ux | challenger r2 FIX §Users and journeys: J6 flash time vs round-up | settled | Flash counts down from 5:00, then `Break` from 4:00 | `spec §Users and journeys` J6 |
+| eng | challenger r2 FIX §Acceptance criteria: AC20 proof | settled | Proof: test | `spec §Acceptance criteria` |
+| eng | challenger r2 FIX §Acceptance criteria: status must clear the marker | settled | AC15 allows clearing; AC9 checks it | `spec §Acceptance criteria` |
+| eng | challenger r2 FIX §Acceptance criteria: AC1 vs flash states | settled | "idle with no flash showing" | `spec §Acceptance criteria` |
+| ux | challenger r2 FIX §Experience: nudge while paused | settled | Paused never shows the nudge | `spec §Experience` |
+| ux | challenger r2 FIX §Experience: control popup closes after actions | settled | Every action closes it | `spec §Experience` |
+| ux | challenger r2 FIX §Contracts: stale control popup | settled | Key does nothing but redraw | `spec §Contracts`, AC21 |
+| user | challenger r2 FIX §Experience: home vs vocabulary | settled | product.md: home is the pane a focus started on; popup `<agent>` uses the same rule | `product.md#vocabulary`, `spec §Experience` |
+| eng | challenger r2 FIX §Experience: pane id gone after restart | settled | Home closed applies; spike added | `spec §Experience`, `tech-stack.md#open` |
+| eng | challenger r2 FIX §Contracts: unnamed time limit | settled | 200 ms budget | `spec §Contracts` |
+| ux | challenger r2 FIX §Contracts: paste collides with existing keys | settled | README names each colliding key and says to replace it | `spec §Contracts` |
+| eng | challenger r2 FIX §Contracts: build step off-platform or failed download | settled | Exits non-zero with a reason, installs nothing | `spec §Contracts` |
+| eng | challenger r2 FIX §Contracts: null where mode needs a value | settled | Unknown | `spec §Contracts` |
+| eng | challenger r2 FIX §Acceptance criteria: resume and home closed untested | settled | AC7 and AC5 extended | `spec §Acceptance criteria` |
+| ux | challenger r2 FIX §Experience: popup start row and replace mode | settled | Opens on Focus row; any digit or Backspace ends replace mode | `spec §Experience` |
+| ux | challenger r2 FIX ux.md#states: idle dimness | settled | "herdr may dim it" | `ux.md#states` |
+| ux | challenger r2 CONTEST §Experience: custom reached by arrows with no prior custom | settled | review: last custom if any, else `custom` with no number | `spec §Experience`, `mock.html` |
+| ux | challenger r2 CONTEST §Experience: long home names | settled | review: cut at 24 characters with `…` | `spec §Experience`, AC19 |
+| ux | challenger r2 CONTEST §Experience: `prefix+f` with the popup open | settled | review: no second popup | `spec §Experience` |
+| eng | challenger r2 CONTEST §Contracts: herdr silent or write fails in the popup | settled | review: one-line message, state unchanged | `spec §Experience`, AC22 |
+| eng | challenger r2 CONTEST §Contracts: telling servers apart without the state dir | settled | review: state keyed by herdr server; how the tab bar command learns it is a spike | `spec §Contracts`, `tech-stack.md#open` |

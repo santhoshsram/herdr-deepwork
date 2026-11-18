@@ -44,4 +44,7 @@
 - Spike: `HERDR_ACTIVE_PANE_ID` reaches a tab bar command, for the away nudge.
 - Spike: the cost of a 1 s `/bin/sh -lc` login shell.
 - Spike: `$focus` renders in the sidebar row next to `state_icon`.
+- Spike: pane ids survive a herdr server restart.
+- Spike: a tab bar command gets the binary on PATH, the plugin state dir,
+  and which herdr server it belongs to.
 - Build commands in `workflow.md` are `none yet` until `Cargo.toml` exists.
