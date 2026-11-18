@@ -9,8 +9,21 @@
     command entry, through `/bin/sh -lc`, and shows its last output line.
   - `herdr-focus panel`: the popup, opened by `prefix+f` through a
     `[[keys.command]]` `plugin_action` binding.
-- State: one `state.json` in `HERDR_PLUGIN_STATE_DIR`. It holds the end time,
-  not a countdown, so the timer survives detach and server restart.
+- Files: everything lives in the plugin's state folder,
+  `~/.local/state/herdr/plugins/focus/`. The `[[build]]` step copies the
+  program there, because herdr installs each version into a new folder and
+  the tab bar line needs a path that never changes. Each herdr session has
+  its own `sessions/<name>/timer.json`, because the state folder is shared
+  by all sessions. The file holds the end time, not a countdown, so the
+  timer survives detach and server restart.
+- herdr facts the design rests on, checked on herdr 0.9.5 on 2026-11-18:
+  - The tab bar command gets `HERDR_ACTIVE_PANE_ID`, `HERDR_SESSION`,
+    `HERDR_SOCKET_PATH` and `HERDR_BIN_PATH`, but no plugin state folder.
+  - The popup gets the pane focused before it in `HERDR_PLUGIN_CONTEXT_JSON`
+    (`focused_pane_id`), and mouse clicks.
+  - `/bin/sh -lc` costs about 6 ms and `herdr agent list` about 5 ms.
+  - `$focus` shows in the sidebar row: `● v1 · 🍅`.
+  - A pane keeps its id across a server restart; its metadata tokens do not.
 - Sidebar marker: `herdr pane report-metadata <pane> --source focus --token
   focus=🍅`, rendered as `$focus` in the user's
   `[ui.sidebar.agents.rows_by_agent]` rows.
@@ -36,19 +49,9 @@
 
 - A dependency (crate) beyond the standard library and serde/serde_json.
 - A background process or daemon.
-- A second state file.
+- A file outside the plugin's state folder.
 - Any write to the user's herdr `config.toml`.
 
 ## Open
 
-Unverified, to try in a quick throwaway test before building on it:
-
-- Clicks reach the plugin inside its popup pane.
-- herdr gives a tab bar command `HERDR_ACTIVE_PANE_ID`, so the status can
-  tell when the user is away from home.
-- Starting `/bin/sh -lc` every second costs little enough.
-- `$focus` shows in the sidebar row next to `state_icon`.
-- A pane keeps its id across a herdr server restart.
-- A tab bar command can find the `herdr-focus` program, the plugin's state
-  folder, and which herdr server it belongs to.
 - Build commands in `workflow.md` are `none yet` until `Cargo.toml` exists.

@@ -68,3 +68,5 @@ cell is written `\|`.
 | ux | challenger r2 CONTEST §Experience: `prefix+f` with the popup open | settled | review: no second popup | `spec §Experience` |
 | eng | challenger r2 CONTEST §Contracts: herdr silent or write fails in the popup | settled | review: one-line message, state unchanged | `spec §Experience`, AC22 |
 | eng | challenger r2 CONTEST §Contracts: telling servers apart without the state dir | settled | review: state keyed by herdr server; how the tab bar command learns it is a spike | `spec §Contracts`, `tech-stack.md#open` |
+| eng | Where the program and timer files live | settled | All in `~/.local/state/herdr/plugins/focus/`: the program copied at install and update, and `sessions/<name>/timer.json` per herdr session | user: "go ahead"; herdr checks in `tech-stack.md#what-it-is-made-of` |
+| eng | Copy the program or link it | settled | Copy: the tab bar then depends on nothing in herdr's install folders; a link would also work | user: "go ahead" |

@@ -179,8 +179,20 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
   no timer it prints `🍅`. herdr may show it dim; the plugin adds no styling.
   If herdr cannot say which pane is focused within the 200 ms limit, the
   line leaves out the `←` hint.
-- **Saved state.** One file, `state.json`, in the folder herdr gives the
-  plugin for state. Its exact shape:
+- **Where the plugin keeps its files.** One folder, the one herdr gives the
+  plugin for state: `~/.local/state/herdr/plugins/focus/`. It holds:
+
+  ```
+  ~/.local/state/herdr/plugins/focus/
+    herdr-focus                       the program, copied at install and every update
+    sessions/default/timer.json       timer for the session plain `herdr` starts
+    sessions/<name>/timer.json        timer for `herdr --session <name>`
+  ```
+
+  herdr names the session in `HERDR_SESSION`; when that is unset or empty,
+  the session is `default`. The tab bar command gets no plugin state folder
+  from herdr, so the program uses the folder it was copied into.
+- **Saved state.** Each `timer.json` has this exact shape:
 
   ```json
   {
@@ -211,14 +223,17 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
   one, so nothing ever reads half a file. A status run never undoes a popup
   action made at the same moment. A popup key acts on the state as it is
   when the key is pressed.
-- **One timer per herdr server.** Two herdr servers (`herdr --session`)
-  never share a timer. The status command and the popup of one server always
-  use the same state file.
+- **One timer per herdr session.** Two herdr sessions (`herdr --session`)
+  never share a timer, because each has its own `timer.json`. The status
+  command and the popup of one session always use the same file.
 - **Plugin manifest.** `herdr-plugin.toml` has id `focus`, the action
   `focus.open` that opens the popup, and a `[[build]]` step. That step
   downloads this version's prebuilt binary for the user's machine from the
-  GitHub release: macOS arm64, Linux x86_64 or Linux arm64. It needs no Rust
-  toolchain. On any other machine, or if the download fails, it prints a
+  GitHub release (macOS arm64, Linux x86_64 or Linux arm64), and copies it
+  to `~/.local/state/herdr/plugins/focus/herdr-focus`. herdr installs every
+  version into a new folder, so this copy is the one path that never
+  changes. The step runs again on every `herdr plugin update`. It needs no
+  Rust toolchain. On any other machine, or if the download fails, it prints a
   one-line reason, exits non-zero and installs nothing.
 - **The 🍅 after home's sidebar row.** The plugin sets it as pane metadata
   token `focus` on the home pane: `🍅` during a focus, `⏸` while paused. It
@@ -228,15 +243,12 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
   binding, a tab bar entry or a sidebar token to herdr by itself. So the
   README holds a block of config for the user to copy into their herdr
   `config.toml`, as `mock.html` shows. It sets three things: `prefix+f` to
-  open the popup, the tab bar entry that runs `herdr-focus status`, and
-  `$focus` in the sidebar's agent rows. The block works pasted unchanged
-  into a `config.toml` that does not already set those keys. The README
-  names the keys that may already exist (`tab_bar_right`, the agent rows)
-  and says to merge the new lines into them. The user never types a path.
-  herdr runs the tab bar entry as a plain shell command, outside the plugin,
-  so it may not find the `herdr-focus` program or the plugin's state folder.
-  If so, the block calls the program by its full install path, written with
-  `~`, and the program finds the state folder itself.
+  open the popup, the tab bar entry that runs
+  `~/.local/state/herdr/plugins/focus/herdr-focus status`, and `$focus` in
+  the sidebar's agent rows. The block works pasted unchanged into a
+  `config.toml` that does not already set those keys; the user never types a
+  path. The README names the keys that may already exist (`tab_bar_right`,
+  the agent rows) and says to merge the new lines into them.
 - **Commands.** `herdr-focus status` and `herdr-focus panel`. Nothing else is
   public.
 
