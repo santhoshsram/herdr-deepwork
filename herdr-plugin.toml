@@ -1,0 +1,22 @@
+id = "focus"
+name = "Focus"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "A focus timer in the herdr tab bar"
+platforms = ["macos", "linux"]
+
+[[build]]
+command = ["sh", "scripts/install.sh"]
+
+[[actions]]
+id = "open"
+title = "Open the focus timer"
+command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin focus --entrypoint panel"]
+
+[[panes]]
+id = "panel"
+title = "Focus timer"
+placement = "popup"
+width = 60
+height = 20
+command = ["bin/herdr-focus", "panel"]

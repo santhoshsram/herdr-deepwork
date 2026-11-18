@@ -351,6 +351,12 @@ folder and copies it to `~/.local/state/herdr/plugins/focus/herdr-focus`.
 On any other machine or a failed download: one line on stderr, exit
 non-zero, nothing copied. `HERDR_FOCUS_RELEASE_URL` overrides the download
 base, for tests.
+Asset names: `herdr-focus-macos-arm64`, `herdr-focus-linux-x86_64`,
+`herdr-focus-linux-arm64`. URL: `<base>/v<version>/<asset>`, default base
+`https://github.com/santhoshsram/herdr-focus/releases/download`, version
+from the manifest's top-level `version` (same as Cargo.toml). Download with
+`curl -fsSL -o <file> <url>`. The plugin-folder copy is `bin/herdr-focus`;
+the pane command runs it as `bin/herdr-focus panel`.
 README: install command, the config block verbatim from `mock.html`'s setup
 section with the tab bar command
 `~/.local/state/herdr/plugins/focus/herdr-focus status`, and which existing
