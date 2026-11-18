@@ -75,3 +75,4 @@ cell is written `\|`.
 | eng | Test stand-in for herdr runs slow the first time | settled | Tests run the stand-in once before timing, because macOS checks a new file for about 370 ms on its first run | task 03 dispute |
 | eng | Start popup when herdr is slow or the pane is unknown | settled | `pane get` gets 1 s; on failure the name is `home` and the popup still opens; Enter with no current pane shows `herdr is not answering` | task 04 hand-back |
 | eng | Keyboard mode in the popup | settled | `stty -icanon -echo` when stdin is a terminal, restored on exit; a lone Esc counts after 50 ms; leading `0` dropped, as in `mock.html` | task 04 hand-back |
+| eng | Control popup details | settled | Away needs a known current pane, a non-empty home name and `pane get <home>` within 1 s; stale check compares phase, home, `ends_at`, `left_secs`; a stale popup whose timer ended switches to the start popup; Stop and End break keep the last home | task 05 hand-back |
