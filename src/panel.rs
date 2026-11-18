@@ -29,18 +29,20 @@ pub const BOLD: &str = "\x1b[1m";
 pub const DIM: &str = "\x1b[2m";
 /// Red text.
 pub const RED: &str = "\x1b[31m";
-/// Swapped foreground and background.
-pub const REVERSE: &str = "\x1b[7m";
+/// Blue text.
+pub const BLUE: &str = "\x1b[34m";
+/// Dark text on blue.
+pub const ON_BLUE: &str = "\x1b[30;44m";
 
 /// Shown when herdr cannot be reached or does not answer in time.
 pub const NOT_ANSWERING: &str = "herdr is not answering";
 /// Shown when the timer file cannot be written.
 pub const NOT_SAVED: &str = "Could not save";
 
-/// A key hint: the key in bold, then what it does.
+/// A key hint: the key, then what it does, fainter.
 #[must_use]
 pub fn hint(key: &str, what: &str) -> String {
-    format!("{BOLD}{key}{RESET} {what}")
+    format!("{key} {DIM}{what}{RESET}")
 }
 
 /// What a popup needs from outside: herdr, the timer file, the pane the user
@@ -105,21 +107,72 @@ pub fn is_running(view: View) -> bool {
     timeline::phase(view).is_some()
 }
 
-/// The index of the label under column `col` in a row drawn from column
-/// `first_col`, each label with a space on either side and `gap` columns
-/// between them; columns count from 1.
+/// Columns of space left of every popup line.
+pub const MARGIN: &str = "  ";
+/// Columns of the divider above the key hints.
+const RULE_WIDTH: usize = 44;
+/// Columns between two chips in a row.
+const CHIP_GAP: &str = " ";
+
+/// How a chip is drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Chip {
+    Plain,
+    /// Chosen in a row the keys are not on.
+    Picked,
+    /// Chosen in the row the keys are on, or the button Enter presses.
+    Selected,
+}
+
+/// `chips` drawn side by side as rounded boxes: the top, middle and bottom
+/// lines.
 #[must_use]
-pub fn hit<S: AsRef<str>>(labels: &[S], first_col: usize, gap: usize, col: u16) -> Option<usize> {
+pub fn chips<S: AsRef<str>>(chips: &[(S, Chip)]) -> [String; 3] {
+    let mut lines: [Vec<String>; 3] = Default::default();
+    for (label, style) in chips {
+        let label = label.as_ref();
+        let bar = "─".repeat(label.chars().count() + 2);
+        let (edge, inside) = match style {
+            Chip::Plain => (DIM, String::new()),
+            Chip::Picked => (BLUE, String::from(BLUE)),
+            Chip::Selected => (BLUE, String::from(ON_BLUE)),
+        };
+        lines[0].push(format!("{edge}╭{bar}╮{RESET}"));
+        lines[1].push(format!(
+            "{edge}│{RESET}{inside} {label} {RESET}{edge}│{RESET}"
+        ));
+        lines[2].push(format!("{edge}╰{bar}╯{RESET}"));
+    }
+    lines.map(|line| line.join(CHIP_GAP))
+}
+
+/// The index of the chip under column `col`, in a row of chips drawn by
+/// [`chips`] from column `first_col`; columns count from 1.
+#[must_use]
+pub fn hit<S: AsRef<str>>(labels: &[S], first_col: usize, col: u16) -> Option<usize> {
     let col = usize::from(col);
     let mut first = first_col;
     for (index, label) in labels.iter().enumerate() {
-        let last = first + label.as_ref().chars().count() + 1;
+        let last = first + label.as_ref().chars().count() + 3;
         if (first..=last).contains(&col) {
             return Some(index);
         }
-        first = last + 1 + gap;
+        first = last + 1 + CHIP_GAP.len();
     }
     None
+}
+
+/// The divider above the key hints.
+#[must_use]
+pub fn rule() -> String {
+    format!("{MARGIN}{DIM}{}{RESET}", "─".repeat(RULE_WIDTH))
+}
+
+/// Key hints on one line.
+#[must_use]
+pub fn hints(pairs: &[(&str, &str)]) -> String {
+    let hints: Vec<String> = pairs.iter().map(|(key, what)| hint(key, what)).collect();
+    format!("{MARGIN}{}", hints.join("  "))
 }
 
 /// The terminal in the mode the popup needs, put back on drop.

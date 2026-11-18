@@ -3,14 +3,16 @@
 use crate::format;
 use crate::herdr::{Call, finish_quietly};
 use crate::keys::Key;
-use crate::panel::{self, BOLD, Context, DIM, NOT_ANSWERING, Outcome, RED, RESET, REVERSE, hint};
+use crate::panel::{self, BOLD, Chip, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET};
 use crate::state::{Mode, Timer, Timestamp};
 use crate::timeline::{self, Phase, View, phase};
 
-/// Row of the buttons on screen, counted from 1.
-const BUTTON_ROW: u16 = 6;
-/// One column, so a 24-character home name still fits the popup.
-const BUTTON_GAP: &str = " ";
+/// First screen row of the buttons, counted from 1. Each row of buttons
+/// takes 3 lines.
+const BUTTON_ROW: u16 = 5;
+const BUTTON_LINES: u16 = 3;
+/// Column of the first button, counted from 1.
+const FIRST_BUTTON_COL: usize = MARGIN.len() + 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -127,39 +129,55 @@ impl ControlPopup {
     pub fn lines(&self) -> Vec<String> {
         let view = timeline::view(&self.timer, Timestamp::now());
         let buttons = self.buttons();
-        let drawn: Vec<String> = buttons
-            .iter()
-            .enumerate()
-            .map(|(i, button)| {
-                let label = button.label();
-                if i == 0 {
-                    format!("{REVERSE} {label} {RESET}")
-                } else {
-                    format!(" {label} ")
-                }
-            })
-            .collect();
         let what = match (self.phase, self.timer.home_name.as_deref()) {
-            (Phase::Break, _) | (_, None) => String::from("check your agents"),
-            (_, Some(name)) => format!("on {BOLD}{}{RESET}", format::printable(name)),
+            (Phase::Break, _) | (_, None) => format!("{DIM}check your agents{RESET}"),
+            (_, Some(name)) => format!("{DIM}on{RESET} {BOLD}{}{RESET}", format::printable(name)),
         };
-        let hints: Vec<String> = buttons
+        let mut lines = vec![
+            String::new(),
+            format!("{MARGIN}{BOLD}{}{RESET}", format::line(view)),
+            format!("{MARGIN}{what}"),
+            String::new(),
+        ];
+        let mut first = 0;
+        for row in self.button_rows(&buttons) {
+            let drawn: Vec<(String, Chip)> = row
+                .iter()
+                .enumerate()
+                .map(|(i, button)| {
+                    let style = if first + i == 0 {
+                        Chip::Selected
+                    } else {
+                        Chip::Plain
+                    };
+                    (button.label(), style)
+                })
+                .collect();
+            lines.extend(panel::chips(&drawn).map(|line| format!("{MARGIN}{line}")));
+            first += row.len();
+        }
+        let hints: Vec<(&str, &str)> = buttons
             .iter()
             .map(|button| (button.key, button.hint))
             .chain([("esc", "close")])
-            .map(|(key, what)| hint(key, what))
             .collect();
-        vec![
-            format!("{DIM}focus{RESET}"),
-            String::new(),
-            format!("{BOLD}{}{RESET}", format::line(view)),
-            what,
-            String::new(),
-            drawn.join(BUTTON_GAP),
+        lines.extend([
             // Always one line, so the keys below do not jump when it appears.
-            format!("{RED}{}{RESET}", self.error.unwrap_or_default()),
-            hints.join("  "),
-        ]
+            format!("{MARGIN}{RED}{}{RESET}", self.error.unwrap_or_default()),
+            panel::rule(),
+            panel::hints(&hints),
+        ]);
+        lines
+    }
+
+    /// The buttons split into the rows they are drawn in: away, Back to its
+    /// own row, as a long home name would push Stop past the popup's edge.
+    fn button_rows<'a>(&self, buttons: &'a [Button]) -> Vec<&'a [Button]> {
+        if self.away.is_some() && buttons.len() > 1 {
+            vec![&buttons[..1], &buttons[1..]]
+        } else {
+            vec![buttons]
+        }
     }
 
     /// The buttons of this screen, the first being the primary one.
@@ -195,13 +213,13 @@ impl ControlPopup {
 
     /// The action of the button under a click.
     fn button_at(&self, col: u16, row: u16) -> Option<Action> {
-        if row != BUTTON_ROW {
-            return None;
-        }
+        let index = usize::from(row.checked_sub(BUTTON_ROW)? / BUTTON_LINES);
         let buttons = self.buttons();
-        let labels: Vec<String> = buttons.iter().map(Button::label).collect();
-        let index = panel::hit(&labels, 1, BUTTON_GAP.len(), col)?;
-        Some(buttons[index].action)
+        let rows = self.button_rows(&buttons);
+        let row_buttons = rows.get(index)?;
+        let labels: Vec<String> = row_buttons.iter().map(Button::label).collect();
+        let hit = panel::hit(&labels, FIRST_BUTTON_COL, col)?;
+        Some(row_buttons[hit].action)
     }
 
     /// Acts on one key; a click acts as the button it hits.
@@ -341,14 +359,41 @@ mod tests {
             away: None,
             error: None,
         };
-        // ` Resume ⏎ ` is 10 columns, a gap of 1, then ` Stop s `.
-        assert_eq!(popup.button_at(1, BUTTON_ROW), Some(Action::Resume));
-        assert_eq!(popup.button_at(10, BUTTON_ROW), Some(Action::Resume));
-        assert_eq!(popup.button_at(11, BUTTON_ROW), None);
-        assert_eq!(popup.button_at(12, BUTTON_ROW), Some(Action::Stop));
-        assert_eq!(popup.button_at(19, BUTTON_ROW), Some(Action::Stop));
-        assert_eq!(popup.button_at(20, BUTTON_ROW), None);
+        // `│ Resume ⏎ │` from column 3 is 12 columns, a gap of 1, then
+        // `│ Stop s │`; each button is 3 lines tall.
+        assert_eq!(popup.button_at(3, BUTTON_ROW), Some(Action::Resume));
+        assert_eq!(popup.button_at(14, BUTTON_ROW + 2), Some(Action::Resume));
+        assert_eq!(popup.button_at(15, BUTTON_ROW + 1), None);
+        assert_eq!(popup.button_at(16, BUTTON_ROW + 1), Some(Action::Stop));
+        assert_eq!(popup.button_at(25, BUTTON_ROW + 1), Some(Action::Stop));
+        assert_eq!(popup.button_at(26, BUTTON_ROW + 1), None);
         assert_eq!(popup.button_at(2, BUTTON_ROW + 1), None);
+        assert_eq!(popup.button_at(5, BUTTON_ROW + 3), None);
+        assert_eq!(popup.button_at(5, BUTTON_ROW - 1), None);
+    }
+
+    #[test]
+    fn away_puts_pause_and_stop_on_the_second_row() {
+        let timer = Timer {
+            mode: Mode::Focus,
+            ends_at: Some(Timestamp(Timestamp::now().0 + 600)),
+            home_pane: Some("p1".into()),
+            home_name: Some("work".into()),
+            ..Timer::default()
+        };
+        let popup = ControlPopup {
+            timer,
+            phase: Phase::Focus,
+            away: Some(Away {
+                pane: "p1".into(),
+                name: "work".into(),
+            }),
+            error: None,
+        };
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 1), Some(Action::Back));
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 4), Some(Action::Pause));
+        // `│ Pause p │` is 11 columns from column 3, a gap, then Stop.
+        assert_eq!(popup.button_at(15, BUTTON_ROW + 4), Some(Action::Stop));
     }
 
     #[test]

@@ -19,8 +19,9 @@ const OTHER: &str = "w0:p2";
 /// The longest home name the spec allows.
 const LONG_NAME: &str = "abcdefghijklmnopqrstuvwx";
 
-/// The most columns a popup line may take.
-const MAX_COLUMNS: usize = 56;
+/// The most columns a popup line may take: the manifest's width of 50, less
+/// herdr's border on each side and a 2-column right margin.
+const MAX_COLUMNS: usize = 46;
 
 /// A panel that has not exited by then is hung.
 const PANEL_TIMEOUT: Duration = Duration::from_secs(5);

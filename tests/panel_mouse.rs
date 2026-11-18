@@ -243,17 +243,17 @@ impl Screen {
         })
     }
 
-    /// The Focus option row of the start popup: `Focus  15 25 50 custom min`.
+    /// The middle line of the start popup's Focus options: `Focus   │ 15 │ … min`.
     fn focus_option(&self, label: &str) -> Option<(usize, usize)> {
         self.find(
-            |row| row.starts_with("Focus") && row.trim_end().ends_with("min"),
+            |row| row.trim_start().starts_with("Focus") && row.trim_end().ends_with("min"),
             label,
         )
     }
 
-    /// The Break option row of the start popup: `Break  off 2 5 10 min`.
+    /// The middle line of the start popup's Break options: `Break   │ off │ … min`.
     fn break_option(&self, label: &str) -> Option<(usize, usize)> {
-        self.find(|row| row.starts_with("Break"), label)
+        self.find(|row| row.trim_start().starts_with("Break"), label)
     }
 
     /// The first place `text` is drawn.
@@ -547,7 +547,10 @@ fn mouse_click_elsewhere() {
     let state = StateDir::new("elsewhere-start");
     let mut panel = Panel::start(&state);
     let name = wait_for_place(&state, "the home name", |screen| {
-        screen.find(|row| row.starts_with("Focus on"), "herdr-focus")
+        screen.find(
+            |row| row.trim_start().starts_with("Focus on"),
+            "herdr-focus",
+        )
     });
     panel.click((120, 40));
     panel.click(name);
