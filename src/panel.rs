@@ -18,6 +18,8 @@ const HERDR_BUDGET: Duration = Duration::from_secs(1);
 const CLEAR: &str = "\x1b[H\x1b[2J";
 const HIDE_CURSOR: &str = "\x1b[?25l";
 const SHOW_CURSOR: &str = "\x1b[?25h";
+const MOUSE_ON: &str = "\x1b[?1000h\x1b[?1006h";
+const MOUSE_OFF: &str = "\x1b[?1006l\x1b[?1000l";
 
 /// What a popup needs from outside: herdr, the timer file, the pane the user
 /// was in.
@@ -91,14 +93,14 @@ impl Terminal {
         if saved.is_some() {
             stty(&["-icanon", "-echo"]);
         }
-        draw(HIDE_CURSOR);
+        draw(&format!("{HIDE_CURSOR}{MOUSE_ON}"));
         Self { saved }
     }
 }
 
 impl Drop for Terminal {
     fn drop(&mut self) {
-        draw(SHOW_CURSOR);
+        draw(&format!("{MOUSE_OFF}{SHOW_CURSOR}"));
         if let Some(saved) = &self.saved {
             stty(&[saved]);
         }

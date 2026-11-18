@@ -31,6 +31,13 @@ pub enum Key {
     Digit(u8),
     /// Another printable ASCII key.
     Char(char),
+    /// A left-button release at a 1-based column and row of the popup.
+    Click {
+        /// Column, counted from 1 at the popup's left edge.
+        col: u16,
+        /// Row, counted from 1 at the popup's top edge.
+        row: u16,
+    },
     /// Anything the popup does not use.
     Other,
 }
@@ -67,19 +74,34 @@ fn arrow(final_byte: u8) -> Key {
     }
 }
 
+/// An SGR mouse report, `ESC [ < button ; col ; row` then `M` for a press or
+/// `m` for a release; only a left-button release is a click.
+fn mouse(params: &[u8], final_byte: u8) -> Key {
+    let text = std::str::from_utf8(params).unwrap_or_default();
+    let fields: Vec<Option<u16>> = text.split(';').map(|f| f.parse().ok()).collect();
+    match (final_byte, fields.as_slice()) {
+        (b'm', [Some(0), Some(col), Some(row)]) => Key::Click {
+            col: *col,
+            row: *row,
+        },
+        _ => Key::Other,
+    }
+}
+
 fn parse_escape(bytes: &[u8]) -> Parsed {
     match bytes.get(1) {
         None => Parsed::Incomplete,
         Some(b'[') => {
-            // Parameter and intermediate bytes, then one final byte; mouse
-            // reports and unknown sequences end up as `Other`.
+            // Parameter and intermediate bytes, then one final byte; unknown
+            // sequences end up as `Other`.
             let end = bytes[2..]
                 .iter()
                 .position(|b| (0x40..=0x7e).contains(b))
                 .map(|i| i + 2);
             match end {
                 None => Parsed::Incomplete,
-                Some(i) if i == 2 => Parsed::Key(arrow(bytes[i]), 3),
+                Some(2) => Parsed::Key(arrow(bytes[2]), 3),
+                Some(i) if bytes[2] == b'<' => Parsed::Key(mouse(&bytes[3..i], bytes[i]), i + 1),
                 Some(i) => Parsed::Key(Key::Other, i + 1),
             }
         }
@@ -172,7 +194,18 @@ mod tests {
     }
 
     #[test]
-    fn mouse_reports_are_one_unused_key() {
-        assert_eq!(parse(b"\x1b[<0;3;4m40"), Parsed::Key(Key::Other, 9));
+    fn a_left_release_is_a_click() {
+        assert_eq!(
+            parse(b"\x1b[<0;3;14m40"),
+            Parsed::Key(Key::Click { col: 3, row: 14 }, 10)
+        );
+    }
+
+    #[test]
+    fn other_mouse_reports_are_one_unused_key() {
+        assert_eq!(parse(b"\x1b[<0;3;4M40"), Parsed::Key(Key::Other, 9));
+        assert_eq!(parse(b"\x1b[<2;3;4m40"), Parsed::Key(Key::Other, 9));
+        assert_eq!(parse(b"\x1b[<0;3m"), Parsed::Key(Key::Other, 7));
+        assert_eq!(parse(b"\x1b[<0;70000;4m"), Parsed::Key(Key::Other, 13));
     }
 }

@@ -14,6 +14,11 @@ const CUSTOM: usize = PRESETS.len();
 const DEFAULT_BREAK: usize = 2;
 const MAX_NAME: usize = 24;
 const MAX_DIGITS: usize = 3;
+/// Rows of the two option lines on screen, counted from 1.
+const FOCUS_ROW: u16 = 5;
+const BREAK_ROW: u16 = 7;
+/// Columns taken by `Focus  ` and `Break  `, before the first chip.
+const LABEL_WIDTH: usize = 7;
 const FOCUS_RANGE: std::ops::RangeInclusive<u16> = 1..=180;
 
 const RANGE_ERROR: &str = "1 to 180";
@@ -118,34 +123,26 @@ impl StartPopup {
     /// The screen, one string per line.
     #[must_use]
     pub fn lines(&self) -> Vec<String> {
-        let mut focus: Vec<String> = PRESETS
-            .iter()
-            .enumerate()
-            .map(|(i, m)| self.chip(Row::Focus, i, &m.to_string()))
-            .collect();
-        focus.push(self.chip(Row::Focus, CUSTOM, &self.custom_label()));
-        let breaks: Vec<String> = BREAKS
-            .iter()
-            .enumerate()
-            .map(|(i, &m)| {
-                let label = if m == 0 {
-                    String::from("off")
-                } else {
-                    m.to_string()
-                };
-                self.chip(Row::Break, i, &label)
-            })
-            .collect();
+        let chips = |row: Row, labels: Vec<String>| -> String {
+            let chips: Vec<String> = labels
+                .iter()
+                .enumerate()
+                .map(|(i, label)| self.chip(row, i, label))
+                .collect();
+            chips.join(" ")
+        };
+        let focus = chips(Row::Focus, self.focus_labels());
+        let breaks = chips(Row::Break, break_labels());
         let hint = |key: &str, what: &str| format!("{BOLD}{key}{RESET} {what}");
         vec![
             format!("{DIM}focus{RESET}"),
             String::new(),
             format!("Focus on {BOLD}{}{RESET}", self.name),
             String::new(),
-            format!("{DIM}Focus{RESET}  {} {DIM}min{RESET}", focus.join(" ")),
+            format!("{DIM}Focus{RESET}  {} {DIM}min{RESET}", focus),
             // Always one line, so the Break row does not jump when it appears.
             format!("       {RED}{}{RESET}", self.error.unwrap_or_default()),
-            format!("{DIM}Break{RESET}  {} {DIM}min{RESET}", breaks.join(" ")),
+            format!("{DIM}Break{RESET}  {} {DIM}min{RESET}", breaks),
             String::new(),
             [
                 hint("⏎", "start"),
@@ -156,6 +153,32 @@ impl StartPopup {
             ]
             .join("  "),
         ]
+    }
+
+    fn focus_labels(&self) -> Vec<String> {
+        let mut labels: Vec<String> = PRESETS.iter().map(u16::to_string).collect();
+        labels.push(self.custom_label());
+        labels
+    }
+
+    /// The chip under a click: its row and its index in the row.
+    fn chip_at(&self, col: u16, row: u16) -> Option<(Row, usize)> {
+        let (which, labels) = match row {
+            FOCUS_ROW => (Row::Focus, self.focus_labels()),
+            BREAK_ROW => (Row::Break, break_labels()),
+            _ => return None,
+        };
+        let col = usize::from(col);
+        let mut first = LABEL_WIDTH + 1;
+        for (index, label) in labels.iter().enumerate() {
+            // A chip is its label with a space on each side.
+            let last = first + label.chars().count() + 1;
+            if (first..=last).contains(&col) {
+                return Some((which, index));
+            }
+            first = last + 2;
+        }
+        None
     }
 
     /// The custom chip: the number once selected, else the word `custom`.
@@ -185,6 +208,9 @@ impl StartPopup {
 
     /// Acts on one key.
     pub fn press(&mut self, key: Key, ctx: &Context) -> Outcome {
+        if let Key::Click { col, row } = key {
+            return self.click(col, row, ctx);
+        }
         self.error = None;
         match key {
             Key::Esc => return Outcome::Close,
@@ -202,9 +228,35 @@ impl StartPopup {
                 self.custom.pop();
                 self.typing = true;
             }
-            Key::Backspace | Key::Char(_) | Key::Other => {}
+            Key::Backspace | Key::Char(_) | Key::Click { .. } | Key::Other => {}
         }
         Outcome::Stay
+    }
+
+    /// A break chip selects; a focus chip starts, except the custom chip,
+    /// which first selects and starts only once chosen with a number typed.
+    fn click(&mut self, col: u16, row: u16, ctx: &Context) -> Outcome {
+        let Some((which, index)) = self.chip_at(col, row) else {
+            return Outcome::Stay;
+        };
+        self.error = None;
+        self.typing = false;
+        let chosen = self.row == Row::Focus && self.focus_sel == CUSTOM && !self.custom.is_empty();
+        self.row = which;
+        match which {
+            Row::Break => {
+                self.break_sel = index;
+                Outcome::Stay
+            }
+            Row::Focus => {
+                self.focus_sel = index;
+                if index == CUSTOM && !chosen {
+                    Outcome::Stay
+                } else {
+                    self.start(ctx)
+                }
+            }
+        }
     }
 
     fn step(&mut self, forward: bool) {
@@ -289,6 +341,19 @@ impl StartPopup {
     }
 }
 
+fn break_labels() -> Vec<String> {
+    BREAKS
+        .iter()
+        .map(|&m| {
+            if m == 0 {
+                String::from("off")
+            } else {
+                m.to_string()
+            }
+        })
+        .collect()
+}
+
 fn set_tomato(herdr: &Herdr, pane: &str) {
     if let Some(call) = herdr.set_focus_token(pane, "🍅") {
         let _ = call.finish();
@@ -341,6 +406,51 @@ mod tests {
         popup.digit(0);
         assert_eq!(popup.custom, "250");
         assert_eq!(popup.minutes(), None);
+    }
+
+    #[test]
+    fn chips_are_found_where_they_are_drawn() {
+        let popup = StartPopup::new("home".into(), &Timer::default());
+        let plain = |line: &str| {
+            let mut out = String::new();
+            let mut chars = line.chars();
+            while let Some(c) = chars.next() {
+                if c == '\x1b' {
+                    for e in chars.by_ref() {
+                        if e == 'm' {
+                            break;
+                        }
+                    }
+                } else {
+                    out.push(c);
+                }
+            }
+            out
+        };
+        let lines = popup.lines();
+        let focus = plain(&lines[usize::from(FOCUS_ROW) - 1]);
+        let breaks = plain(&lines[usize::from(BREAK_ROW) - 1]);
+        let at = |line: &str, needle: &str| {
+            u16::try_from(line.find(needle).expect("drawn") + 1).expect("fits")
+        };
+        assert_eq!(
+            popup.chip_at(at(&focus, "50"), FOCUS_ROW),
+            Some((Row::Focus, 2))
+        );
+        assert_eq!(
+            popup.chip_at(at(&focus, "custom"), FOCUS_ROW),
+            Some((Row::Focus, CUSTOM))
+        );
+        assert_eq!(
+            popup.chip_at(at(&breaks, "10"), BREAK_ROW),
+            Some((Row::Break, 3))
+        );
+        assert_eq!(
+            popup.chip_at(at(&breaks, "off"), BREAK_ROW),
+            Some((Row::Break, 0))
+        );
+        assert_eq!(popup.chip_at(at(&breaks, "10"), FOCUS_ROW - 1), None);
+        assert_eq!(popup.chip_at(1, BREAK_ROW), None);
     }
 
     #[test]

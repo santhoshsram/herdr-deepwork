@@ -10,6 +10,10 @@ use crate::timeline::{self, View};
 const NOT_ANSWERING: &str = "herdr is not answering";
 const NOT_SAVED: &str = "Could not save";
 
+/// Row of the buttons on screen, counted from 1.
+const BUTTON_ROW: u16 = 6;
+const BUTTON_GAP: &str = "  ";
+
 const TOMATO: &str = "🍅";
 const PAUSED: &str = "⏸";
 
@@ -38,6 +42,9 @@ fn phase(view: View) -> Option<Phase> {
         View::Idle | View::FocusDone | View::BreakOver => None,
     }
 }
+
+/// The buttons with the key each stands for, then the key hints.
+type Parts = (Vec<(String, Key)>, Vec<(&'static str, &'static str)>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Action {
@@ -91,40 +98,18 @@ impl ControlPopup {
     #[must_use]
     pub fn lines(&self) -> Vec<String> {
         let view = timeline::view(&self.timer, Timestamp::now());
-        let button = |primary: bool, text: &str| {
-            if primary {
-                format!("{REVERSE} {text} {RESET}")
-            } else {
-                format!(" {text} ")
-            }
-        };
-        let (buttons, keys): (Vec<String>, Vec<(&str, &str)>) = match (self.phase, &self.away) {
-            (Phase::Focus, Some(away)) => (
-                vec![
-                    button(true, &format!("Back to {} ⏎", away.name)),
-                    button(false, "Pause p"),
-                    button(false, "Stop s"),
-                ],
-                vec![
-                    ("⏎", "back"),
-                    ("p", "pause"),
-                    ("s", "stop"),
-                    ("esc", "close"),
-                ],
-            ),
-            (Phase::Focus, None) => (
-                vec![button(true, "Pause ⏎"), button(false, "Stop s")],
-                vec![("⏎", "pause"), ("s", "stop"), ("esc", "close")],
-            ),
-            (Phase::Paused, _) => (
-                vec![button(true, "Resume ⏎"), button(false, "Stop s")],
-                vec![("⏎", "resume"), ("s", "stop"), ("esc", "close")],
-            ),
-            (Phase::Break, _) => (
-                vec![button(true, "End break ⏎")],
-                vec![("⏎", "end break"), ("esc", "close")],
-            ),
-        };
+        let (buttons, keys) = self.parts();
+        let buttons: Vec<String> = buttons
+            .iter()
+            .enumerate()
+            .map(|(i, (text, _))| {
+                if i == 0 {
+                    format!("{REVERSE} {text} {RESET}")
+                } else {
+                    format!(" {text} ")
+                }
+            })
+            .collect();
         let what = match (self.phase, self.timer.home_name.as_deref()) {
             (Phase::Break, _) | (_, None) => String::from("check your agents"),
             (_, Some(name)) => format!("on {BOLD}{}{RESET}", printable(name)),
@@ -139,15 +124,78 @@ impl ControlPopup {
             format!("{BOLD}{}{RESET}", format::line(view)),
             what,
             String::new(),
-            buttons.join("  "),
+            buttons.join(BUTTON_GAP),
             // Always one line, so the keys below do not jump when it appears.
             format!("{RED}{}{RESET}", self.error.unwrap_or_default()),
             hints.join("  "),
         ]
     }
 
-    /// Acts on one key.
+    /// The buttons with the key each stands for, the first being the primary
+    /// one, and the key hints.
+    fn parts(&self) -> Parts {
+        match (self.phase, &self.away) {
+            (Phase::Focus, Some(away)) => (
+                vec![
+                    (format!("Back to {} ⏎", away.name), Key::Enter),
+                    ("Pause p".into(), Key::Char('p')),
+                    ("Stop s".into(), Key::Char('s')),
+                ],
+                vec![
+                    ("⏎", "back"),
+                    ("p", "pause"),
+                    ("s", "stop"),
+                    ("esc", "close"),
+                ],
+            ),
+            (Phase::Focus, None) => (
+                vec![
+                    ("Pause ⏎".into(), Key::Enter),
+                    ("Stop s".into(), Key::Char('s')),
+                ],
+                vec![("⏎", "pause"), ("s", "stop"), ("esc", "close")],
+            ),
+            (Phase::Paused, _) => (
+                vec![
+                    ("Resume ⏎".into(), Key::Enter),
+                    ("Stop s".into(), Key::Char('s')),
+                ],
+                vec![("⏎", "resume"), ("s", "stop"), ("esc", "close")],
+            ),
+            (Phase::Break, _) => (
+                vec![("End break ⏎".into(), Key::Enter)],
+                vec![("⏎", "end break"), ("esc", "close")],
+            ),
+        }
+    }
+
+    /// The key of the button under a click.
+    fn button_at(&self, col: u16, row: u16) -> Option<Key> {
+        if row != BUTTON_ROW {
+            return None;
+        }
+        let col = usize::from(col);
+        let mut first = 1;
+        for (text, key) in self.parts().0 {
+            // A button is its text with a space on each side.
+            let last = first + text.chars().count() + 1;
+            if (first..=last).contains(&col) {
+                return Some(key);
+            }
+            first = last + 1 + BUTTON_GAP.len();
+        }
+        None
+    }
+
+    /// Acts on one key; a click acts as the key of the button it hits.
     pub fn press(&mut self, key: Key, ctx: &Context) -> Outcome {
+        let key = match key {
+            Key::Click { col, row } => match self.button_at(col, row) {
+                Some(key) => key,
+                None => return Outcome::Stay,
+            },
+            key => key,
+        };
         self.error = None;
         if key == Key::Esc {
             return Outcome::Close;
@@ -331,6 +379,29 @@ mod tests {
         ] {
             assert_eq!(phase(view).is_some(), is_running(view), "{view:?}");
         }
+    }
+
+    #[test]
+    fn buttons_are_found_where_they_are_drawn() {
+        let timer = Timer {
+            mode: Mode::Paused,
+            left_secs: Some(60),
+            ..Timer::default()
+        };
+        let popup = ControlPopup {
+            timer,
+            phase: Phase::Paused,
+            away: None,
+            error: None,
+        };
+        // ` Resume ⏎ ` is 10 columns, a gap of 2, then ` Stop s `.
+        assert_eq!(popup.button_at(1, BUTTON_ROW), Some(Key::Enter));
+        assert_eq!(popup.button_at(10, BUTTON_ROW), Some(Key::Enter));
+        assert_eq!(popup.button_at(11, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(13, BUTTON_ROW), Some(Key::Char('s')));
+        assert_eq!(popup.button_at(20, BUTTON_ROW), Some(Key::Char('s')));
+        assert_eq!(popup.button_at(21, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(2, BUTTON_ROW + 1), None);
     }
 
     #[test]
