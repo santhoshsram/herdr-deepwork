@@ -14,7 +14,7 @@ const FOCUS_RANGE: std::ops::RangeInclusive<u16> = 1..=180;
 /// Why a timer file is not a valid timer.
 #[derive(Debug)]
 pub enum StateError {
-    /// The file could not be read.
+    /// The file could not be read or written.
     Io(std::io::Error),
     /// The text is not JSON of the contract shape.
     Json(serde_json::Error),
@@ -25,7 +25,7 @@ pub enum StateError {
 impl fmt::Display for StateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Io(e) => write!(f, "cannot read timer file: {e}"),
+            Self::Io(e) => write!(f, "cannot read or write timer file: {e}"),
             Self::Json(e) => write!(f, "timer file is not valid: {e}"),
             Self::Invalid(why) => write!(f, "timer file is not valid: {why}"),
         }
@@ -347,6 +347,26 @@ pub fn load_current() -> Timer {
     state_dir()
         .and_then(|dir| load(&timer_path(&dir, &session_name())).ok())
         .unwrap_or_default()
+}
+
+/// Writes `timer` to `path`, creating the folders, by writing a sibling file
+/// and renaming it over `path` so a reader never sees half a file.
+///
+/// # Errors
+/// Returns a [`StateError`] when the timer cannot be serialized or the file
+/// cannot be written; `path` is then unchanged.
+pub fn save(path: &Path, timer: &Timer) -> Result<(), StateError> {
+    let mut text = serde_json::to_string(timer).map_err(StateError::Json)?;
+    text.push('\n');
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(dir).map_err(StateError::Io)?;
+    let temp = dir.join(format!(".timer.json.{}.tmp", std::process::id()));
+    let written = fs::write(&temp, text).and_then(|()| fs::rename(&temp, path));
+    if let Err(e) = written {
+        let _ = fs::remove_file(&temp);
+        return Err(StateError::Io(e));
+    }
+    Ok(())
 }
 
 fn non_empty_env(name: &str) -> Option<String> {

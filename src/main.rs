@@ -9,8 +9,9 @@ fn main() -> ExitCode {
             println!("{}", herdr_focus::status_line());
             ExitCode::SUCCESS
         }
+        Some("panel") => herdr_focus::panel::run(),
         _ => {
-            eprintln!("usage: herdr-focus status");
+            eprintln!("usage: herdr-focus status | panel");
             ExitCode::from(2)
         }
     }
