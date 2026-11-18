@@ -77,3 +77,5 @@ cell is written `\|`.
 | eng | Keyboard mode in the popup | settled | `stty -icanon -echo` when stdin is a terminal, restored on exit; a lone Esc counts after 50 ms; leading `0` dropped, as in `mock.html` | task 04 hand-back |
 | eng | Control popup details | settled | Away needs a known current pane, a non-empty home name and `pane get <home>` within 1 s; stale check compares phase, home, `ends_at`, `left_secs`; a stale popup whose timer ended switches to the start popup; Stop and End break keep the last home | task 05 hand-back |
 | eng | Mouse handling | settled | Only a left-button release counts; click areas come from the same lists that draw the rows; a Focus length click starts, a Break click selects, the custom field needs a second click to start, as in `mock.html` | task 06 hand-back |
+| eng | Popup size | settled | review: `width = 60`, `height = 20`, picked by the implementer; check against the real popup in prove | task 07 hand-back |
+| eng | How the action opens the popup | settled | `sh -c` wrapper so `$HERDR_BIN_PATH` expands; pane runs `bin/herdr-focus panel` from the plugin folder | task 07 hand-back |
