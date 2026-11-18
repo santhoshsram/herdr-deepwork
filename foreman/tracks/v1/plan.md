@@ -15,6 +15,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03 [a7ec5eb]
 - [x] P1 fix(plugin): README config block is valid TOML | AC: AC16 | deps: none [75a5b9b]
 - [x] P2 fix(panel): popups fit their width | AC: AC3 | deps: none [6363011]
+- [x] P3 fix(plugin): popup runs the one installed copy | AC: AC16 | deps: none [12e781e]
 
 ## Shared contract (all tasks)
 
@@ -510,3 +511,25 @@ Free choice: where hint lines break; popup height may change if needed.
 
 ### Out of scope
 - Changing button or option text
+
+## P3 fix(plugin): popup runs the one installed copy
+
+### Goal
+One copy of the program. The install step put it in the plugin folder for
+the popup and in the state folder for the tab bar; the popup can run the
+state-folder copy through `sh -c`, as the `open` action already does.
+Spec: §Contracts install step, AC16
+
+### Contract
+The install step writes only `~/.local/state/herdr/plugins/focus/herdr-focus`.
+The `panel` pane command runs that program with the argument `panel`.
+
+### Behaviour
+- B1 The install step makes no `bin/` folder -> install_copies_binary
+- B2 The pane command, run without a shell from the plugin folder, runs the installed program with `panel` -> manifest_panel_runs_installed_program
+
+### Tests
+- File: tests/install.rs
+
+### Files
+- herdr-plugin.toml, scripts/install.sh

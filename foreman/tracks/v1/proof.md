@@ -59,3 +59,4 @@ For the user to run; prove could not.
 - Herdr server restart while paused (AC20, J7) -> held
 - Home title empty after restart (AC19) -> held: falls back to `claude`
 - Status run with live herdr 30 times through a login shell (AC13) -> held
+- Pane command run as herdr runs it, no shell, fake home, after P3 (AC16) -> held: the popup drew from the state-folder copy; `cargo test` 82 passed
