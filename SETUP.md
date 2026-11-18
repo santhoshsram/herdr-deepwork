@@ -1,6 +1,6 @@
-# Set up herdr-focus
+# Set up herdr-deepwork
 
-You are a coding agent setting up herdr-focus for the user. herdr-focus is a
+You are a coding agent setting up herdr-deepwork for the user. herdr-deepwork is a
 focus timer plugin for herdr. Setup is two steps: install the plugin, then
 add its config to herdr's `config.toml`. Run each command yourself and read
 its output. Ask the user only where this file says to.
@@ -13,10 +13,10 @@ its output. Ask the user only where this file says to.
    skip to "2. Add the config".
 3. Ask the user to confirm the install, because herdr runs the plugin's
    install step on their machine. On yes, run
-   `herdr plugin install --yes santhoshsram/herdr-focus`. It downloads a
+   `herdr plugin install --yes santhoshsram/herdr-deepwork`. It downloads a
    ready-made program for macOS on Apple silicon or Linux on x86_64 or arm64.
    On any other machine it fails: tell the user and stop.
-4. Check that `~/.local/state/herdr/plugins/focus/herdr-focus` exists.
+4. Check that `~/.local/state/herdr/plugins/santhoshsram.deepwork/herdr-deepwork` exists.
 
 ## 2. Add the config
 
@@ -37,14 +37,14 @@ TOML rules that matter here:
 
 ### The key
 
-Add this table, unless a `[[keys.command]]` with `command = "focus.open"`
+Add this table, unless a `[[keys.command]]` with `command = "santhoshsram.deepwork.open"`
 exists:
 
 ```toml
 [[keys.command]]
 key = "prefix+f"
 type = "plugin_action"
-command = "focus.open"
+command = "santhoshsram.deepwork.open"
 description = "focus timer"
 ```
 
@@ -56,11 +56,11 @@ If the file already uses `"prefix+f"` anywhere, under `[keys]` or in another
 The timer is this entry in `tab_bar_right`, under `[ui]`:
 
 ```toml
-{ type = "command", command = "~/.local/state/herdr/plugins/focus/herdr-focus status", interval_seconds = 1, timeout_seconds = 1 }
+{ type = "command", command = "~/.local/state/herdr/plugins/santhoshsram.deepwork/herdr-deepwork status", interval_seconds = 1, timeout_seconds = 1 }
 ```
 
 - Skip this if `tab_bar_right` already has an entry whose command runs
-  `herdr-focus status`.
+  `herdr-deepwork status`.
 - If `tab_bar_right` exists, add the entry as its last item and keep the
   other items.
 - If it does not exist, add `tab_bar_right = [ <the entry> ]` to the `[ui]`
@@ -70,18 +70,18 @@ The timer is this entry in `tab_bar_right`, under `[ui]`:
 
 ### The sidebar
 
-`$focus` shows a 🍅 on the sidebar row of the agent the user focuses on. It
+`$deepwork` shows a 🍅 on the sidebar row of the agent the user focuses on. It
 goes last in the first row of each agent row layout:
 
 - `rows` under `[ui.sidebar.agents]`, the layout for every agent. If it is
-  not set, add herdr's default with `$focus`:
-  `rows = [["state_icon", "machine", "workspace", "tab", "$focus"], ["agent"]]`.
+  not set, add herdr's default with `$deepwork`:
+  `rows = [["state_icon", "machine", "workspace", "tab", "$deepwork"], ["agent"]]`.
   `[ui.sidebar.agents]` goes before `[ui.sidebar.agents.rows_by_agent]`;
   create it if it is missing.
 - each agent's layout under `[ui.sidebar.agents.rows_by_agent]`, if that
   table exists. Do not add agents to it.
 
-Add `"$focus"` only to the first row of each layout, and skip a layout whose
+Add `"$deepwork"` only to the first row of each layout, and skip a layout whose
 first row already has it.
 
 ### Check and apply

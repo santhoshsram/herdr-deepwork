@@ -1,4 +1,4 @@
-# herdr-focus: ux
+# herdr-deepwork: ux
 
 The visual reference is `mock.html` at the repo root (untracked, the user's).
 Root `DESIGN.md` is not needed: herdr renders the status as plain text,
@@ -59,5 +59,5 @@ A plugin cannot add a key binding, a tab bar entry or a sidebar token to
 herdr by itself. So the user pastes one line from the README into their
 coding agent, which follows `SETUP.md`: it installs the plugin if missing,
 backs up `config.toml`, and merges in `prefix+f`, the tab bar entry (last)
-and `$focus` on the sidebar rows, keeping what the user has. The README also
+and `$deepwork` on the sidebar rows, keeping what the user has. The README also
 has the block for doing it by hand.

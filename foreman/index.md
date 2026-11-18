@@ -1,4 +1,4 @@
-# herdr-focus index
+# herdr-deepwork index
 
 Where everything lives. Skills resolve paths from here.
 

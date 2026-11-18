@@ -1,4 +1,4 @@
-//! `herdr-focus panel` with a timer running shows the control popup and acts on its keys.
+//! `herdr-deepwork panel` with a timer running shows the control popup and acts on its keys.
 
 use std::fs;
 use std::io::Write;
@@ -31,7 +31,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-panel-control-{}-{}-{}",
+            "herdr-deepwork-panel-control-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -177,7 +177,7 @@ case "$1 $2" in
       printf '{"error":{"code":"pane_not_found","message":"pane %s not found"},"id":"cli:pane:get"}\n' "$3"
       exit 1
     fi
-    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-focus","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
+    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-deepwork","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
     ;;
   "pane list")
     printf '{"id":"cli:pane:list","result":{"panes":[],"type":"pane_list"}}\n'
@@ -197,7 +197,7 @@ case "$1 $2" in
 esac
 "#;
 
-/// A running `herdr-focus panel` with piped stdin.
+/// A running `herdr-deepwork panel` with piped stdin.
 struct Panel {
     child: Child,
     stdin: Option<ChildStdin>,
@@ -214,7 +214,7 @@ impl Panel {
     /// Starts the panel in the pane `focused`.
     fn start(state: &StateDir, focused: &str) -> Self {
         let stdout = fs::File::create(state.stdout_path()).expect("create stdout file");
-        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-focus"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"))
             .arg("panel")
             .env("HERDR_PLUGIN_STATE_DIR", &state.path)
             .env("HERDR_BIN_PATH", state.herdr_path())
@@ -228,7 +228,7 @@ impl Panel {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::null())
             .spawn()
-            .expect("run herdr-focus panel");
+            .expect("run herdr-deepwork panel");
         let stdin = child.stdin.take();
         Self { child, stdin }
     }
@@ -433,15 +433,15 @@ fn assert_shows(screen: &str, texts: &[&str]) {
 /// Whether `call` sets the `focus` token on `HOME` to `value`.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
-        && call.contains("--source herdr-focus")
-        && call.contains(&format!("--token focus={value}"))
+        && call.contains("--source herdr-deepwork")
+        && call.contains(&format!("--token deepwork={value}"))
 }
 
 /// Whether `call` clears the `focus` token on `HOME`.
 fn is_clear_call(call: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
-        && call.contains("--source herdr-focus")
-        && call.contains("--clear-token focus")
+        && call.contains("--source herdr-deepwork")
+        && call.contains("--clear-token deepwork")
 }
 
 fn is_agent_focus_home(call: &str) -> bool {
@@ -486,7 +486,7 @@ fn control_pause_at_home() {
     let calls = state.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "⏸")),
-        "no focus=⏸ call on {HOME}: {calls:?}"
+        "no deepwork=⏸ call on {HOME}: {calls:?}"
     );
 }
 
@@ -533,7 +533,7 @@ fn control_pause_when_away() {
     let calls = state.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "⏸")),
-        "no focus=⏸ call on {HOME}: {calls:?}"
+        "no deepwork=⏸ call on {HOME}: {calls:?}"
     );
     assert!(
         calls.iter().all(|call| !call.starts_with("agent focus")),
@@ -565,7 +565,7 @@ fn control_resume() {
     let calls = state.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "🍅")),
-        "no focus=🍅 call on {HOME}: {calls:?}"
+        "no deepwork=🍅 call on {HOME}: {calls:?}"
     );
 }
 

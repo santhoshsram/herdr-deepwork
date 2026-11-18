@@ -1,4 +1,4 @@
-//! `herdr-focus status` prints the idle tomato whatever the timer file holds.
+//! `herdr-deepwork status` prints the idle tomato whatever the timer file holds.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -19,7 +19,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-status-idle-{}-{}-{}",
+            "herdr-deepwork-status-idle-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -47,10 +47,10 @@ impl Drop for StateDir {
     }
 }
 
-/// Runs `herdr-focus status` with a clean herdr environment.
+/// Runs `herdr-deepwork status` with a clean herdr environment.
 /// `session` of `None` leaves `HERDR_SESSION` unset.
 fn run_status(state: &Path, session: Option<&str>) -> (Output, Duration) {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_herdr-focus"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"));
     cmd.arg("status")
         .env("HERDR_PLUGIN_STATE_DIR", state)
         .env("HERDR_BIN_PATH", state.join("no-such-herdr"))
@@ -61,7 +61,7 @@ fn run_status(state: &Path, session: Option<&str>) -> (Output, Duration) {
         cmd.env("HERDR_SESSION", name);
     }
     let started = Instant::now();
-    let output = cmd.output().expect("run herdr-focus status");
+    let output = cmd.output().expect("run herdr-deepwork status");
     (output, started.elapsed())
 }
 

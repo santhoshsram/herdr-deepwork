@@ -56,18 +56,24 @@ impl Herdr {
         })
     }
 
-    /// Starts a call that sets the sidebar token `focus` on `pane` to
+    /// Starts a call that sets the sidebar token `deepwork` on `pane` to
     /// `token`, or clears it when `token` is `None`.
     ///
     /// A set expires on its own after [`TOKEN_TTL_MS`], so the status command
     /// only refreshes it while a timer runs and never has to clear it.
     #[must_use]
     pub fn report_focus_token(&self, pane: &str, token: Option<&str>) -> Option<Call> {
-        let mut args = vec!["pane", "report-metadata", pane, "--source", "herdr-focus"];
-        let set = token.map(|value| format!("focus={value}"));
+        let mut args = vec![
+            "pane",
+            "report-metadata",
+            pane,
+            "--source",
+            "herdr-deepwork",
+        ];
+        let set = token.map(|value| format!("deepwork={value}"));
         match &set {
             Some(set) => args.extend(["--token", set.as_str(), "--ttl-ms", TOKEN_TTL_MS]),
-            None => args.extend(["--clear-token", "focus"]),
+            None => args.extend(["--clear-token", "deepwork"]),
         }
         self.spawn(&args)
     }

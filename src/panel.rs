@@ -1,4 +1,4 @@
-//! `herdr-focus panel`: the popup, start or control, drawn on the terminal.
+//! `herdr-deepwork panel`: the popup, start or control, drawn on the terminal.
 
 use std::io::{IsTerminal, Write};
 use std::path::PathBuf;

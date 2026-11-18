@@ -1,4 +1,4 @@
-# herdr-focus: guidelines
+# herdr-deepwork: guidelines
 
 ## Voice
 

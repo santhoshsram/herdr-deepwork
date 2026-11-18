@@ -1,4 +1,4 @@
-//! `herdr-focus panel` with no timer running shows the start popup and starts a focus.
+//! `herdr-deepwork panel` with no timer running shows the start popup and starts a focus.
 
 use std::fs;
 use std::io::Write;
@@ -44,7 +44,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-panel-start-{}-{}-{}",
+            "herdr-deepwork-panel-start-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -53,7 +53,7 @@ impl StateDir {
         fs::create_dir_all(&path).expect("create temp state dir");
         let state = Self { path };
         state.write_herdr();
-        state.set_pane("herdr-focus", Agent::Kind("claude"));
+        state.set_pane("herdr-deepwork", Agent::Kind("claude"));
         state
     }
 
@@ -194,7 +194,7 @@ case "$1 $2" in
 esac
 "#;
 
-/// A running `herdr-focus panel` with piped stdin.
+/// A running `herdr-deepwork panel` with piped stdin.
 struct Panel {
     child: Child,
     stdin: Option<ChildStdin>,
@@ -210,7 +210,7 @@ struct Run {
 impl Panel {
     fn start(state: &StateDir) -> Self {
         let stdout = fs::File::create(state.stdout_path()).expect("create stdout file");
-        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-focus"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"))
             .arg("panel")
             .env("HERDR_PLUGIN_STATE_DIR", &state.path)
             .env("HERDR_BIN_PATH", state.herdr_path())
@@ -224,7 +224,7 @@ impl Panel {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::null())
             .spawn()
-            .expect("run herdr-focus panel");
+            .expect("run herdr-deepwork panel");
         let stdin = child.stdin.take();
         Self { child, stdin }
     }
@@ -435,8 +435,8 @@ fn assert_started(
 /// Whether `call` sets the `focus` token on `HOME` to `value`.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
-        && call.contains("--source herdr-focus")
-        && call.contains(&format!("--token focus={value}"))
+        && call.contains("--source herdr-deepwork")
+        && call.contains(&format!("--token deepwork={value}"))
 }
 
 fn report_calls(state: &StateDir) -> Vec<String> {
@@ -456,11 +456,17 @@ fn panel_first_run_defaults() {
 
     assert_exit_zero(&run);
     assert!(
-        run.screen.contains("Focus on herdr-focus"),
+        run.screen.contains("Focus on herdr-deepwork"),
         "screen: {}",
         run.screen
     );
-    assert_started(&state.read_timer(), "herdr-focus", 25, 5, (before, after));
+    assert_started(
+        &state.read_timer(),
+        "herdr-deepwork",
+        25,
+        5,
+        (before, after),
+    );
     assert_eq!(state.read_timer()["last_custom_mins"], Value::Null);
     assert!(
         state
@@ -480,7 +486,13 @@ fn panel_remembers_choices() {
     let run = run_panel(&state, &[RIGHT, DOWN, RIGHT, ENTER]);
     let after = now_secs();
     assert_exit_zero(&run);
-    assert_started(&state.read_timer(), "herdr-focus", 50, 10, (before, after));
+    assert_started(
+        &state.read_timer(),
+        "herdr-deepwork",
+        50,
+        10,
+        (before, after),
+    );
 
     // Back to idle, as after the focus ran out, keeping the remembered choices.
     let mut idle = state.read_timer();
@@ -492,7 +504,13 @@ fn panel_remembers_choices() {
     let run = run_panel(&state, &[ENTER]);
     let after = now_secs();
     assert_exit_zero(&run);
-    assert_started(&state.read_timer(), "herdr-focus", 50, 10, (before, after));
+    assert_started(
+        &state.read_timer(),
+        "herdr-deepwork",
+        50,
+        10,
+        (before, after),
+    );
 }
 
 #[test]
@@ -504,7 +522,7 @@ fn panel_custom_length() {
 
     assert_exit_zero(&run);
     let timer = state.read_timer();
-    assert_started(&timer, "herdr-focus", 40, 5, (before, after));
+    assert_started(&timer, "herdr-deepwork", 40, 5, (before, after));
     assert_eq!(timer["last_custom_mins"], 40, "{timer}");
 }
 
@@ -548,7 +566,7 @@ fn panel_custom_equal_preset() {
 
         assert_exit_zero(&run);
         let timer = state.read_timer();
-        assert_started(&timer, "herdr-focus", 25, 10, (before, after));
+        assert_started(&timer, "herdr-deepwork", 25, 10, (before, after));
         assert_eq!(
             timer["last_custom_mins"], last_custom,
             "{tag}: last_custom_mins changed: {timer}"
@@ -615,7 +633,7 @@ fn panel_start_sets_tomato() {
     let calls = state.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "🍅")),
-        "no focus=🍅 call on {HOME}: {calls:?}"
+        "no deepwork=🍅 call on {HOME}: {calls:?}"
     );
     assert!(
         calls.iter().all(|call| !call.contains("--clear-token")),
@@ -682,7 +700,7 @@ fn panel_never_starts_second_timer() {
     panel.send(ENTER);
     let run = panel.finish(&state);
     assert!(
-        run.screen.contains("Focus on herdr-focus"),
+        run.screen.contains("Focus on herdr-deepwork"),
         "the popup opened before the timer started: {}",
         run.screen
     );

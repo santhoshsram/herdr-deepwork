@@ -1,8 +1,8 @@
-id = "focus"
-name = "Focus"
-version = "0.1.0"
+id = "santhoshsram.deepwork"
+name = "Deep Work"
+version = "0.2.0"
 min_herdr_version = "0.9.5"
-description = "A focus timer in the herdr tab bar"
+description = "Cuts unnecessary context switching: stay with one agent long enough to make real progress"
 platforms = ["macos", "linux"]
 
 [[build]]
@@ -10,13 +10,13 @@ command = ["sh", "scripts/install.sh"]
 
 [[actions]]
 id = "open"
-title = "Open the focus timer"
-command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin focus --entrypoint panel"]
+title = "Open Deep Work"
+command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin santhoshsram.deepwork --entrypoint panel"]
 
 [[panes]]
 id = "panel"
-title = "Focus timer"
+title = "Deep Work"
 placement = "popup"
 width = 50
 height = 13
-command = ["sh", "-c", "exec \"$HOME/.local/state/herdr/plugins/focus/herdr-focus\" panel"]
+command = ["sh", "-c", "exec \"$HOME/.local/state/herdr/plugins/santhoshsram.deepwork/herdr-deepwork\" panel"]

@@ -37,7 +37,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-panel-width-{}-{}-{}",
+            "herdr-deepwork-panel-width-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -125,7 +125,7 @@ case "$1 $2" in
 esac
 "#;
 
-/// A running `herdr-focus panel` with piped stdin.
+/// A running `herdr-deepwork panel` with piped stdin.
 struct Panel {
     child: Child,
     stdin: Option<ChildStdin>,
@@ -135,7 +135,7 @@ impl Panel {
     /// Starts the panel in the pane `focused`.
     fn start(state: &StateDir, focused: &str) -> Self {
         let stdout = fs::File::create(state.stdout_path()).expect("create stdout file");
-        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-focus"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"))
             .arg("panel")
             .env("HERDR_PLUGIN_STATE_DIR", &state.path)
             .env("HERDR_BIN_PATH", state.herdr_path())
@@ -149,7 +149,7 @@ impl Panel {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::null())
             .spawn()
-            .expect("run herdr-focus panel");
+            .expect("run herdr-deepwork panel");
         let stdin = child.stdin.take();
         Self { child, stdin }
     }

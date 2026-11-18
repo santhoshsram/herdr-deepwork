@@ -1,4 +1,4 @@
-//! `herdr-focus status` follows the timer timeline from the saved times and the clock.
+//! `herdr-deepwork status` follows the timer timeline from the saved times and the clock.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,7 +18,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-status-timeline-{}-{}-{}",
+            "herdr-deepwork-status-timeline-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -46,9 +46,9 @@ impl Drop for StateDir {
     }
 }
 
-/// Runs `herdr-focus status` with a clean herdr environment.
+/// Runs `herdr-deepwork status` with a clean herdr environment.
 fn run_status(state: &Path) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_herdr-focus"))
+    Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"))
         .arg("status")
         .env("HERDR_PLUGIN_STATE_DIR", state)
         .env("HERDR_BIN_PATH", state.join("no-such-herdr"))
@@ -56,7 +56,7 @@ fn run_status(state: &Path) -> Output {
         .env_remove("HERDR_ACTIVE_PANE_ID")
         .env_remove("HERDR_PLUGIN_CONTEXT_JSON")
         .output()
-        .expect("run herdr-focus status")
+        .expect("run herdr-deepwork status")
 }
 
 /// Asserts a clean exit and that stdout is exactly `line` plus a newline.
