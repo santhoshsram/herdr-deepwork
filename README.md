@@ -13,7 +13,9 @@ another agent and the tab bar points you back.
 - **Take the break.** When the focus ends, the break starts on its own.
 - **Nothing is locked.** It only nudges.
 
-![The start popup and the popup during a focus](docs/media/popups.png)
+| Start a focus | Away from your agent |
+|---|---|
+| ![The start popup: focus and break length](docs/media/popup-start.png) | ![The popup while away: back, pause, stop](docs/media/popup-away.png) |
 
 ## Install
 
