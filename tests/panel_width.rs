@@ -81,12 +81,24 @@ impl StateDir {
         fs::set_permissions(&path, perms).expect("chmod fake herdr");
 
         // The first exec of a fresh script is slow on macOS; warm it.
-        Command::new(&path)
-            .args(["pane", "list"])
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("warm up fake herdr");
+        // On Linux, exec fails with "Text file busy" while another test
+        // thread's fork still holds the write handle; it clears in moments.
+        let mut tries = 0;
+        loop {
+            match Command::new(&path)
+                .args(["pane", "list"])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+            {
+                Ok(_) => break,
+                Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && tries < 100 => {
+                    tries += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                Err(e) => panic!("warm up fake herdr: {e}"),
+            }
+        }
     }
 }
 
