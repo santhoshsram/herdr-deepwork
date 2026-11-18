@@ -439,3 +439,32 @@ fn readme_has_config_block() {
         "README must hold the install command"
     );
 }
+
+#[test]
+fn readme_inline_tables_on_one_line() {
+    let readme = fs::read_to_string(repo_root().join("README.md")).expect("read README.md");
+    let block: Vec<&str> = readme
+        .lines()
+        .skip_while(|l| l.trim() != "```toml")
+        .skip(1)
+        .take_while(|l| l.trim() != "```")
+        .collect();
+    assert!(!block.is_empty(), "README must hold a toml block");
+    assert!(
+        block.iter().any(|l| l.contains('{')),
+        "the toml block must hold an inline table"
+    );
+
+    for line in block {
+        let mut depth = 0i32;
+        for c in line.chars() {
+            match c {
+                '{' => depth += 1,
+                '}' => depth -= 1,
+                _ => {}
+            }
+            assert!(depth >= 0, "inline table closes before it opens: {line:?}");
+        }
+        assert_eq!(depth, 0, "inline table is not closed on its line: {line:?}");
+    }
+}

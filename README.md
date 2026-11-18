@@ -29,8 +29,7 @@ description = "focus timer"
 [ui]
 tab_bar_right = [
   { type = "zoom" },
-  { type = "command", command = "~/.local/state/herdr/plugins/focus/herdr-focus status",
-    interval_seconds = 1, timeout_seconds = 1 },
+  { type = "command", command = "~/.local/state/herdr/plugins/focus/herdr-focus status", interval_seconds = 1, timeout_seconds = 1 },
 ]
 
 # sidebar: "$focus" shows the 🍅 after the agent you focus on.
