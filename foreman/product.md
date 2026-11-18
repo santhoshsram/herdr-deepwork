@@ -1,6 +1,6 @@
-# herdr-focus: product
+# herdr-deepwork: product
 
-herdr-focus is for a herdr user running several coding agents at once who
+herdr-deepwork is for a herdr user running several coding agents at once who
 keeps switching sessions while an agent works, and loses context. They start
 a pomodoro on one agent session and see the time left in herdr's tab bar,
 even in a maximized window. It nudges them to stay in that session until the
@@ -10,7 +10,7 @@ break, and never locks them out or hides anything.
 
 One developer who lives in tmux-style terminals and runs herdr maximized on
 macOS, with many coding agents across several workspaces and herdr
-notifications turned off. They reach for herdr-focus at three moments:
+notifications turned off. They reach for herdr-deepwork at three moments:
 starting a stretch of work on one agent, feeling the pull to check another
 agent while this one works, and the break, when checking the others is the
 point.

@@ -13,13 +13,14 @@ static COUNTER: AtomicUsize = AtomicUsize::new(0);
 /// An install run that has not exited by then is hung.
 const RUN_TIMEOUT: Duration = Duration::from_secs(10);
 
-const DEFAULT_RELEASE_URL: &str = "https://github.com/santhoshsram/herdr-focus/releases/download";
+const DEFAULT_RELEASE_URL: &str =
+    "https://github.com/santhoshsram/herdr-deepwork/releases/download";
 
 /// (`uname -s`, `uname -m`, release asset name)
 const MACHINES: [(&str, &str, &str); 3] = [
-    ("Darwin", "arm64", "herdr-focus-macos-arm64"),
-    ("Linux", "x86_64", "herdr-focus-linux-x86_64"),
-    ("Linux", "aarch64", "herdr-focus-linux-arm64"),
+    ("Darwin", "arm64", "herdr-deepwork-macos-arm64"),
+    ("Linux", "x86_64", "herdr-deepwork-linux-x86_64"),
+    ("Linux", "aarch64", "herdr-deepwork-linux-arm64"),
 ];
 
 const FAKE_CURL: &str = r#"#!/bin/sh
@@ -77,7 +78,7 @@ impl Sandbox {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let root = std::env::temp_dir().join(format!(
-            "herdr-focus-install-{}-{}-{}",
+            "herdr-deepwork-install-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -120,11 +121,11 @@ impl Sandbox {
 
     fn installed(&self) -> PathBuf {
         self.home()
-            .join(".local/state/herdr/plugins/focus/herdr-focus")
+            .join(".local/state/herdr/plugins/santhoshsram.deepwork/herdr-deepwork")
     }
 
     fn plugin_copy(&self) -> PathBuf {
-        self.plugin().join("bin/herdr-focus")
+        self.plugin().join("bin/herdr-deepwork")
     }
 
     fn write_curl(&self) {
@@ -178,12 +179,12 @@ impl Sandbox {
             .current_dir(self.plugin())
             .env("HOME", self.home())
             .env("PATH", path)
-            .env_remove("HERDR_FOCUS_RELEASE_URL")
+            .env_remove("HERDR_DEEPWORK_RELEASE_URL")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::from(stderr_file));
         if let Some(url) = release_url {
-            cmd.env("HERDR_FOCUS_RELEASE_URL", url);
+            cmd.env("HERDR_DEEPWORK_RELEASE_URL", url);
         }
         let mut child = cmd.spawn().expect("spawn sh scripts/install.sh");
         let start = Instant::now();
@@ -426,11 +427,11 @@ fn install_copies_binary() {
 
     let sandbox = Sandbox::new("default-base");
     sandbox.fake_uname("Linux", "x86_64");
-    sandbox.serve("herdr-focus-linux-x86_64", "fake binary");
+    sandbox.serve("herdr-deepwork-linux-x86_64", "fake binary");
     let run = sandbox.run(None);
     assert_eq!(run.code, Some(0), "default base: stderr: {}", run.stderr);
     let url = format!(
-        "{DEFAULT_RELEASE_URL}/v{}/herdr-focus-linux-x86_64",
+        "{DEFAULT_RELEASE_URL}/v{}/herdr-deepwork-linux-x86_64",
         sandbox.version()
     );
     assert!(
@@ -468,7 +469,7 @@ fn manifest_shape() {
         fs::read_to_string(repo_root().join("herdr-plugin.toml")).expect("read herdr-plugin.toml");
     let doc = parse_manifest(&text);
 
-    assert_eq!(doc.top("id").map(unquote), Some("focus"));
+    assert_eq!(doc.top("id").map(unquote), Some("santhoshsram.deepwork"));
     let platforms = doc.top("platforms").expect("platforms is set");
     assert!(platforms.contains("\"macos\""), "platforms: {platforms}");
     assert!(platforms.contains("\"linux\""), "platforms: {platforms}");
@@ -498,11 +499,11 @@ fn manifest_shape() {
 fn readme_has_config_block() {
     let readme = fs::read_to_string(repo_root().join("README.md")).expect("read README.md");
     assert!(
-        readme.contains("~/.local/state/herdr/plugins/focus/herdr-focus status"),
+        readme.contains("~/.local/state/herdr/plugins/santhoshsram.deepwork/herdr-deepwork status"),
         "README must hold the tab bar command"
     );
     assert!(
-        readme.contains("herdr plugin install santhoshsram/herdr-focus"),
+        readme.contains("herdr plugin install santhoshsram/herdr-deepwork"),
         "README must hold the install command"
     );
 }

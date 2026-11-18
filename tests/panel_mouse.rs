@@ -1,4 +1,4 @@
-//! `herdr-focus panel` takes SGR mouse clicks on its buttons and options as it takes keys.
+//! `herdr-deepwork panel` takes SGR mouse clicks on its buttons and options as it takes keys.
 
 use std::fs;
 use std::io::Write;
@@ -30,7 +30,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-panel-mouse-{}-{}-{}",
+            "herdr-deepwork-panel-mouse-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -141,7 +141,7 @@ const FAKE_HERDR: &str = r#"#!/bin/sh
 echo "$*" >> '@LOG@'
 case "$1 $2" in
   "pane get")
-    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-focus","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
+    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-deepwork","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
     ;;
   "pane list")
     printf '{"id":"cli:pane:list","result":{"panes":[],"type":"pane_list"}}\n'
@@ -274,7 +274,7 @@ impl Screen {
     }
 }
 
-/// A running `herdr-focus panel` with piped stdin.
+/// A running `herdr-deepwork panel` with piped stdin.
 struct Panel {
     child: Child,
     stdin: Option<ChildStdin>,
@@ -291,7 +291,7 @@ impl Panel {
     /// Starts the panel in the pane `HOME`.
     fn start(state: &StateDir) -> Self {
         let stdout = fs::File::create(state.stdout_path()).expect("create stdout file");
-        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-focus"))
+        let mut child = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"))
             .arg("panel")
             .env("HERDR_PLUGIN_STATE_DIR", &state.path)
             .env("HERDR_BIN_PATH", state.herdr_path())
@@ -305,7 +305,7 @@ impl Panel {
             .stdout(Stdio::from(stdout))
             .stderr(Stdio::null())
             .spawn()
-            .expect("run herdr-focus panel");
+            .expect("run herdr-deepwork panel");
         let stdin = child.stdin.take();
         Self { child, stdin }
     }
@@ -507,7 +507,7 @@ fn mouse_selects_and_starts() {
     let timer = state.read_timer();
     assert_eq!(timer["mode"], "focus", "{timer}");
     assert_eq!(timer["home_pane"], HOME, "{timer}");
-    assert_eq!(timer["home_name"], "herdr-focus", "{timer}");
+    assert_eq!(timer["home_name"], "herdr-deepwork", "{timer}");
     assert_eq!(timer["left_secs"], Value::Null, "{timer}");
     assert_eq!(timer["break_mins"], 10, "{timer}");
     assert_eq!(timer["last_focus_mins"], 50, "{timer}");
@@ -523,9 +523,9 @@ fn mouse_selects_and_starts() {
     assert!(
         calls.iter().any(|call| {
             call.starts_with(&format!("pane report-metadata {HOME} "))
-                && call.contains("--token focus=🍅")
+                && call.contains("--token deepwork=🍅")
         }),
-        "no focus=🍅 call on {HOME}: {calls:?}"
+        "no deepwork=🍅 call on {HOME}: {calls:?}"
     );
 }
 
@@ -546,8 +546,8 @@ fn mouse_stop() {
     assert!(
         calls.iter().any(|call| {
             call.starts_with(&format!("pane report-metadata {HOME} "))
-                && call.contains("--source herdr-focus")
-                && call.contains("--clear-token focus")
+                && call.contains("--source herdr-deepwork")
+                && call.contains("--clear-token deepwork")
         }),
         "no clear-token call on {HOME}: {calls:?}"
     );
@@ -561,7 +561,7 @@ fn mouse_click_elsewhere() {
     let name = wait_for_place(&state, "the home name", |screen| {
         screen.find(
             |row| row.trim_start().starts_with("Focus on"),
-            "herdr-focus",
+            "herdr-deepwork",
         )
     });
     panel.click((120, 40));

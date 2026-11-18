@@ -1,16 +1,16 @@
-# herdr-focus: tech stack
+# herdr-deepwork: tech stack
 
 ## What it is made of
 
-- A herdr 0.9.5 TUI plugin: `herdr-plugin.toml` declares the `focus.open`
+- A herdr 0.9.5 TUI plugin: `herdr-plugin.toml` declares the `santhoshsram.deepwork.open`
   action, the popup pane (placement popup) and a `[[build]]` step.
-- One Rust binary, `herdr-focus`, with two subcommands:
-  - `herdr-focus status`: herdr runs it every second as a `[ui] tab_bar_right`
+- One Rust binary, `herdr-deepwork`, with two subcommands:
+  - `herdr-deepwork status`: herdr runs it every second as a `[ui] tab_bar_right`
     command entry, through `/bin/sh -lc`, and shows its last output line.
-  - `herdr-focus panel`: the popup, opened by `prefix+f` through a
+  - `herdr-deepwork panel`: the popup, opened by `prefix+f` through a
     `[[keys.command]]` `plugin_action` binding.
 - Files: everything lives in the plugin's state folder,
-  `~/.local/state/herdr/plugins/focus/`. The `[[build]]` step copies the
+  `~/.local/state/herdr/plugins/santhoshsram.deepwork/`. The `[[build]]` step copies the
   program there, because herdr installs each version into a new folder and
   the tab bar line needs a path that never changes; the popup runs that copy
   too, through `sh -c`, so there is one copy. Each herdr session has
@@ -23,10 +23,10 @@
   - The popup gets the pane focused before it in `HERDR_PLUGIN_CONTEXT_JSON`
     (`focused_pane_id`), and mouse clicks.
   - `/bin/sh -lc` costs about 6 ms and `herdr agent list` about 5 ms.
-  - `$focus` shows in the sidebar row: `● v1 · 🍅`.
+  - `$deepwork` shows in the sidebar row: `● v1 · 🍅`.
   - A pane keeps its id across a server restart; its metadata tokens do not.
 - Sidebar marker: `herdr pane report-metadata <pane> --source focus --token
-  focus=🍅`, rendered as `$focus` in the user's
+  deepwork=🍅`, rendered as `$deepwork` in the user's
   `[ui.sidebar.agents.rows_by_agent]` rows.
 - Release: prebuilt binaries for macOS (Apple silicon) and Linux (x86_64,
   arm64), so install needs no Rust toolchain. A `v*` tag builds them, and

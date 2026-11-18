@@ -1,4 +1,4 @@
-//! `herdr-focus status` adds the away hint and keeps the sidebar tomato, talking to a fake herdr.
+//! `herdr-deepwork status` adds the away hint and keeps the sidebar tomato, talking to a fake herdr.
 
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -32,7 +32,7 @@ impl StateDir {
     fn new(tag: &str) -> Self {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let path = std::env::temp_dir().join(format!(
-            "herdr-focus-status-herdr-{}-{}-{}",
+            "herdr-deepwork-status-herdr-{}-{}-{}",
             std::process::id(),
             n,
             tag
@@ -126,13 +126,13 @@ case "$1 $2" in
       printf '{"error":{"code":"pane_not_found","message":"pane %s not found"},"id":"cli:pane:get"}\n' "$3"
       exit 1
     fi
-    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-focus","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
+    printf '{"id":"cli:pane:get","result":{"pane":{"agent":"claude","pane_id":"%s","terminal_title_stripped":"herdr-deepwork","workspace_id":"w0","tab_id":"w0:t1"},"type":"pane_info"}}\n' "$3"
     ;;
   "pane list")
     if [ '@MISSING@' = 1 ]; then
       printf '{"id":"cli:pane:list","result":{"panes":[],"type":"pane_list"}}\n'
     else
-      printf '{"id":"cli:pane:list","result":{"panes":[{"agent":"claude","pane_id":"w0:p1","terminal_title_stripped":"herdr-focus","workspace_id":"w0","tab_id":"w0:t1"},{"agent":"claude","pane_id":"w0:p2","terminal_title_stripped":"other","workspace_id":"w0","tab_id":"w0:t1"}],"type":"pane_list"}}\n'
+      printf '{"id":"cli:pane:list","result":{"panes":[{"agent":"claude","pane_id":"w0:p1","terminal_title_stripped":"herdr-deepwork","workspace_id":"w0","tab_id":"w0:t1"},{"agent":"claude","pane_id":"w0:p2","terminal_title_stripped":"other","workspace_id":"w0","tab_id":"w0:t1"}],"type":"pane_list"}}\n'
     fi
     ;;
   "agent get")
@@ -158,10 +158,10 @@ case "$1 $2" in
 esac
 "#;
 
-/// Runs `herdr-focus status` against the fake herdr. `active` is the value of
+/// Runs `herdr-deepwork status` against the fake herdr. `active` is the value of
 /// `HERDR_ACTIVE_PANE_ID`, or unset when `None`.
 fn run_status(state: &StateDir, active: Option<&str>) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_herdr-focus"));
+    let mut command = Command::new(env!("CARGO_BIN_EXE_herdr-deepwork"));
     command
         .arg("status")
         .env("HERDR_PLUGIN_STATE_DIR", &state.path)
@@ -172,7 +172,7 @@ fn run_status(state: &StateDir, active: Option<&str>) -> Output {
         Some(pane) => command.env("HERDR_ACTIVE_PANE_ID", pane),
         None => command.env_remove("HERDR_ACTIVE_PANE_ID"),
     };
-    command.output().expect("run herdr-focus status")
+    command.output().expect("run herdr-deepwork status")
 }
 
 /// Asserts a clean exit and that stdout is exactly `line` plus a newline.
@@ -254,11 +254,11 @@ fn setup(tag: &str, kind: Herdr, timer: &str) -> StateDir {
     state
 }
 
-/// Whether `call` sets the `focus` token on the home pane to `value`, expiring in 3 s.
+/// Whether `call` sets the `deepwork` token on the home pane to `value`, expiring in 3 s.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
-        && call.contains("--source herdr-focus")
-        && call.contains(&format!("--token focus={value}"))
+        && call.contains("--source herdr-deepwork")
+        && call.contains(&format!("--token deepwork={value}"))
         && call.contains("--ttl-ms 3000")
 }
 
@@ -302,11 +302,11 @@ fn status_sets_sidebar_tomato() {
     let calls = focus.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "🍅")),
-        "no focus=🍅 call with --ttl-ms 3000 on {HOME}: {calls:?}"
+        "no deepwork=🍅 call with --ttl-ms 3000 on {HOME}: {calls:?}"
     );
     assert!(
-        calls.iter().all(|call| !call.contains("focus=⏸")),
-        "unexpected focus=⏸ call during a focus: {calls:?}"
+        calls.iter().all(|call| !call.contains("deepwork=⏸")),
+        "unexpected deepwork=⏸ call during a focus: {calls:?}"
     );
 
     let paused = setup("set-paused", Herdr::Normal, &paused_json(720));
@@ -315,11 +315,11 @@ fn status_sets_sidebar_tomato() {
     let calls = paused.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "⏸")),
-        "no focus=⏸ call with --ttl-ms 3000 on {HOME}: {calls:?}"
+        "no deepwork=⏸ call with --ttl-ms 3000 on {HOME}: {calls:?}"
     );
     assert!(
-        calls.iter().all(|call| !call.contains("focus=🍅")),
-        "unexpected focus=🍅 call while paused: {calls:?}"
+        calls.iter().all(|call| !call.contains("deepwork=🍅")),
+        "unexpected deepwork=🍅 call while paused: {calls:?}"
     );
 }
 
