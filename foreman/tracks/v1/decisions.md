@@ -73,3 +73,5 @@ cell is written `\|`.
 | eng | How status sets the sidebar tomato | settled | Set or cleared on every run, no `--ttl-ms`; `report-metadata` and `pane get` run side by side, each abandoned after 150 ms | task 03 hand-back |
 | eng | When the away hint shows | settled | Only when `pane get <home>` exits 0 with `result.pane`; control characters stripped from the name; empty `HERDR_ACTIVE_PANE_ID` counts as unset | task 03 hand-back |
 | eng | Test stand-in for herdr runs slow the first time | settled | Tests run the stand-in once before timing, because macOS checks a new file for about 370 ms on its first run | task 03 dispute |
+| eng | Start popup when herdr is slow or the pane is unknown | settled | `pane get` gets 1 s; on failure the name is `home` and the popup still opens; Enter with no current pane shows `herdr is not answering` | task 04 hand-back |
+| eng | Keyboard mode in the popup | settled | `stty -icanon -echo` when stdin is a terminal, restored on exit; a lone Esc counts after 50 ms; leading `0` dropped, as in `mock.html` | task 04 hand-back |
