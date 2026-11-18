@@ -1,0 +1,91 @@
+name: CI
+
+# `CI Gate` is the one required status check: branch protection names it
+# instead of each job, so adding or removing a job never needs a settings
+# change.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint and test (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            name: Linux
+          - os: macos-26
+            name: macOS
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy && rustup default stable
+      - name: Check
+        run: cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: EmbarkStudios/cargo-deny-action@70f81531115945ba6eb6b941ec9d39d063438eb9 # v2.1.2
+
+  scripts:
+    name: Shell script lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+
+  workflows:
+    name: Workflow security
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Findings fail the job here rather than going to code scanning,
+      # which a private repo does not have.
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          advanced-security: false
+
+  ci-gate:
+    name: CI Gate
+    # `!cancelled()` so the gate still reports when a job fails; without it a
+    # failed job would skip the gate, and a skipped required check never
+    # resolves.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    needs: [check, dependencies, scripts, workflows]
+    steps:
+      - name: Verify every job succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | .key' <<<"$NEEDS_JSON")
+          if [ -n "$failed" ]; then
+            echo "::error::These jobs did not succeed:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All jobs succeeded."

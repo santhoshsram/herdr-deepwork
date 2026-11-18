@@ -39,7 +39,7 @@ setting or a lock?
 One word per concept. No synonyms.
 
 - **agent**: one herdr agent pane, as the agents sidebar lists it.
-- **home**: the agent a focus started on.
+- **home**: the pane a focus started on, usually an agent.
 - **away**: the focused pane is not home.
 - **focus**: one timed stretch of work on home.
 - **break**: the timed stretch after a focus, for checking other agents.

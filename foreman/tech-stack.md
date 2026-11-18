@@ -9,12 +9,32 @@
     command entry, through `/bin/sh -lc`, and shows its last output line.
   - `herdr-focus panel`: the popup, opened by `prefix+f` through a
     `[[keys.command]]` `plugin_action` binding.
-- State: one `state.json` in `HERDR_PLUGIN_STATE_DIR`. It holds the end time,
-  not a countdown, so the timer survives detach and server restart.
+- Files: everything lives in the plugin's state folder,
+  `~/.local/state/herdr/plugins/focus/`. The `[[build]]` step copies the
+  program there, because herdr installs each version into a new folder and
+  the tab bar line needs a path that never changes; the popup runs that copy
+  too, through `sh -c`, so there is one copy. Each herdr session has
+  its own `sessions/<name>/timer.json`, because the state folder is shared
+  by all sessions. The file holds the end time, not a countdown, so the
+  timer survives detach and server restart.
+- herdr facts the design rests on, checked on herdr 0.9.5 on 2026-11-18:
+  - The tab bar command gets `HERDR_ACTIVE_PANE_ID`, `HERDR_SESSION`,
+    `HERDR_SOCKET_PATH` and `HERDR_BIN_PATH`, but no plugin state folder.
+  - The popup gets the pane focused before it in `HERDR_PLUGIN_CONTEXT_JSON`
+    (`focused_pane_id`), and mouse clicks.
+  - `/bin/sh -lc` costs about 6 ms and `herdr agent list` about 5 ms.
+  - `$focus` shows in the sidebar row: `● v1 · 🍅`.
+  - A pane keeps its id across a server restart; its metadata tokens do not.
 - Sidebar marker: `herdr pane report-metadata <pane> --source focus --token
   focus=🍅`, rendered as `$focus` in the user's
   `[ui.sidebar.agents.rows_by_agent]` rows.
-- Release: a prebuilt macOS binary, so install needs no Rust toolchain.
+- Release: prebuilt binaries for macOS (Apple silicon) and Linux (x86_64,
+  arm64), so install needs no Rust toolchain. A `v*` tag builds them, and
+  fails unless it equals `v` plus the manifest version.
+- CI: fmt, clippy and tests on macOS and Linux; `cargo-deny`, `shellcheck`,
+  `zizmor`; Dependabot for crates and actions.
+- Marketplace: the GitHub topic `herdr-plugin` and the root manifest list
+  the repo at herdr.dev/plugins once it is public.
 
 ## Contested choices
 
@@ -25,7 +45,7 @@
 - **Choices in the popup, not a config file.** The popup remembers the last
   focus and break, so there is nothing to configure.
 - **TUI plugin, not a herdr desktop app mod.** The user runs the TUI.
-- **No daemon.** The status command derives everything from `state.json`
+- **No daemon.** The status command derives everything from `timer.json`
   and the clock, so no process has to stay alive.
 - **No mouse entry point.** herdr 0.9.5 has hardcoded right-click menus, an
   unused plugin `contexts` field and a tab bar that takes no clicks. The
@@ -35,13 +55,10 @@
 
 - A dependency (crate) beyond the standard library and serde/serde_json.
 - A background process or daemon.
-- A second state file.
-- Any write to the user's herdr `config.toml`.
+- A file outside the plugin's state folder.
+- Any write to the user's herdr `config.toml` by the plugin. `SETUP.md` has
+  the user's own agent edit it, after a backup.
 
 ## Open
 
-- Spike: the mouse works inside the popup pane.
-- Spike: `HERDR_ACTIVE_PANE_ID` reaches a tab bar command, for the away nudge.
-- Spike: the cost of a 1 s `/bin/sh -lc` login shell.
-- Spike: `$focus` renders in the sidebar row next to `state_icon`.
-- Build commands in `workflow.md` are `none yet` until `Cargo.toml` exists.
+none

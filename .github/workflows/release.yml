@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Tag matches version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The install step downloads from the tag named after the manifest's
+      # version, so a tag that differs would publish a release nobody gets.
+      - name: Tag matches the plugin version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version *= *"\([^"]*\)".*/\1/p' herdr-plugin.toml | head -n 1)
+          if [ "$TAG" != "v$version" ]; then
+            echo "tag $TAG does not match herdr-plugin.toml version $version" >&2
+            exit 1
+          fi
+
+  build:
+    name: Build ${{ matrix.asset }}
+    needs: version
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-26
+            asset: herdr-focus-macos-arm64
+          # Linux binaries link the runner's glibc, so they need that glibc or newer.
+          - os: ubuntu-24.04
+            asset: herdr-focus-linux-x86_64
+          - os: ubuntu-24.04-arm
+            asset: herdr-focus-linux-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Build
+        run: cargo build --release --locked
+      - name: Name the binary
+        run: mv target/release/herdr-focus "${{ matrix.asset }}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: >
+          gh release create "$TAG"
+          --repo "$REPO"
+          --title "$TAG"
+          --generate-notes
+          dist/*

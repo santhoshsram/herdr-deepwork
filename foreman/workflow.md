@@ -3,12 +3,12 @@
 ## Commands
 | Do | Run |
 |---|---|
-| Build | none yet |
-| Test | none yet |
-| Test files | none yet |
-| Lint | none yet |
-| Run | none yet |
-| Everything CI runs | none yet |
+| Build | `cargo build` |
+| Test | `cargo test` |
+| Test files | `cargo test` |
+| Lint | `cargo fmt --check && cargo clippy --all-targets -- -D warnings` |
+| Run | `cargo run -- status` |
+| Everything CI runs | `cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test` |
 
 Read by `gate.sh`: a Run cell is exactly one code span, or the row is
 skipped. A `|` inside a command is written `\|`.
@@ -16,7 +16,10 @@ skipped. A `|` inside a command is written `\|`.
 ## Test paths
 `tests/*`
 
-Globs on repo-relative paths; `*` crosses `/`. The test-writer may write only
+cargo test runs every test: Rust cannot run one integration test file by
+path, so red and green run the whole suite.
+
+Globs on repo-relative paths; a * also matches /. The test-writer may write only
 these, the implementer never.
 
 ## Principles

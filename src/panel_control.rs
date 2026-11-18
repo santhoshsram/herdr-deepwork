@@ -1,0 +1,415 @@
+//! The control popup: pause, resume, stop, go back home or end a break.
+
+use crate::format;
+use crate::herdr::{Call, finish_quietly};
+use crate::keys::Key;
+use crate::panel::{self, BOLD, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET};
+use crate::state::{Mode, Timer, Timestamp};
+use crate::timeline::{self, Phase, View, phase};
+
+/// Screen row of the first line of buttons, counted from 1; a second line
+/// sits 2 rows below it.
+const BUTTON_ROW: u16 = 5;
+const BUTTON_LINES: u16 = 2;
+/// Column of the first button, counted from 1.
+const FIRST_BUTTON_COL: usize = MARGIN.len() + 1;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Action {
+    Pause,
+    Resume,
+    Stop,
+    Back,
+    EndBreak,
+}
+
+/// One button of a phase, which is also its key hint.
+struct Button {
+    action: Action,
+    /// The key as drawn on the button and in the hint.
+    key: &'static str,
+    /// The keys that press it, the drawn one among them.
+    keys: &'static [Key],
+    text: String,
+    hint: &'static str,
+}
+
+impl Button {
+    fn new(
+        action: Action,
+        (key, keys): (&'static str, &'static [Key]),
+        text: impl Into<String>,
+        hint: &'static str,
+    ) -> Self {
+        Self {
+            action,
+            key,
+            keys,
+            text: text.into(),
+            hint,
+        }
+    }
+
+    fn label(&self) -> String {
+        format!("{} {}", self.text, self.key)
+    }
+}
+
+const ENTER: (&str, &[Key]) = ("⏎", &[Key::Enter]);
+const P: (&str, &[Key]) = ("p", &[Key::Char('p')]);
+const S: (&str, &[Key]) = ("s", &[Key::Char('s')]);
+/// At home Enter pauses, and p still does, as it does when away.
+const ENTER_OR_P: (&str, &[Key]) = ("⏎", &[Key::Enter, Key::Char('p')]);
+
+/// The control popup's state: the timer it shows and what it drew for it.
+#[derive(Debug)]
+pub struct ControlPopup {
+    timer: Timer,
+    phase: Phase,
+    /// The pane to go back to, when the focus is away from it.
+    away: Option<Away>,
+    error: Option<&'static str>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Away {
+    pane: String,
+    name: String,
+}
+
+/// The control popup while herdr looks up the home pane.
+#[derive(Debug)]
+pub struct Opening {
+    popup: ControlPopup,
+    lookup: Option<(Away, Call)>,
+}
+
+impl Opening {
+    /// The popup, away only once herdr answers that the home pane exists.
+    #[must_use]
+    pub fn finish(mut self) -> ControlPopup {
+        self.popup.away = self
+            .lookup
+            .and_then(|(away, call)| call.found_pane().then_some(away));
+        self.popup
+    }
+}
+
+impl ControlPopup {
+    /// Starts opening the popup for `timer`; `None` when no timer runs.
+    /// [`Opening::finish`] waits for herdr.
+    ///
+    /// Away means a focus counts down, the user is in another pane and herdr
+    /// still knows the home pane; a home herdr cannot find or does not answer
+    /// about is treated as the current pane.
+    #[must_use]
+    pub fn begin(ctx: &Context, timer: &Timer) -> Option<Opening> {
+        let view = timeline::view(timer, Timestamp::now());
+        let phase = phase(view)?;
+        let lookup = match phase {
+            Phase::Focus => timer.away_target(ctx.pane.as_deref()),
+            Phase::Paused | Phase::Break => None,
+        }
+        .and_then(|(pane, name)| {
+            let call = ctx.herdr.get_pane(pane)?;
+            let pane = pane.to_owned();
+            Some((Away { pane, name }, call))
+        });
+        let popup = Self {
+            timer: timer.clone(),
+            phase,
+            away: None,
+            error: None,
+        };
+        Some(Opening { popup, lookup })
+    }
+
+    /// The screen, one string per line.
+    #[must_use]
+    pub fn lines(&self) -> Vec<String> {
+        let view = timeline::view(&self.timer, Timestamp::now());
+        let buttons = self.buttons();
+        let what = match (self.phase, self.timer.home_name.as_deref()) {
+            (Phase::Break, _) | (_, None) => format!("{DIM}check your agents{RESET}"),
+            (_, Some(name)) => format!("{DIM}on{RESET} {BOLD}{}{RESET}", format::printable(name)),
+        };
+        let mut lines = vec![
+            String::new(),
+            format!("{MARGIN}{BOLD}{}{RESET}", format::line(view)),
+            format!("{MARGIN}{what}"),
+            String::new(),
+        ];
+        for (i, row) in self.button_rows(&buttons).into_iter().enumerate() {
+            if i > 0 {
+                lines.push(String::new());
+            }
+            let labels: Vec<String> = row.iter().map(Button::label).collect();
+            lines.push(format!("{MARGIN}{}", panel::buttons(&labels, i == 0)));
+        }
+        let hints: Vec<(&str, &str)> = buttons
+            .iter()
+            .map(|button| (button.key, button.hint))
+            .chain([("esc", "close")])
+            .collect();
+        lines.extend([
+            // Always one line, so the keys below do not jump when it appears.
+            format!("{MARGIN}{RED}{}{RESET}", self.error.unwrap_or_default()),
+            panel::rule(),
+            panel::hints(&hints),
+        ]);
+        lines
+    }
+
+    /// The buttons split into the rows they are drawn in: away, Back to its
+    /// own row, as a long home name would push Stop past the popup's edge.
+    fn button_rows<'a>(&self, buttons: &'a [Button]) -> Vec<&'a [Button]> {
+        if self.away.is_some() && buttons.len() > 1 {
+            vec![&buttons[..1], &buttons[1..]]
+        } else {
+            vec![buttons]
+        }
+    }
+
+    /// The buttons of this screen, the first being the primary one.
+    fn buttons(&self) -> Vec<Button> {
+        let stop = || Button::new(Action::Stop, S, "Stop", "stop");
+        match (self.phase, &self.away) {
+            (Phase::Focus, Some(away)) => vec![
+                Button::new(
+                    Action::Back,
+                    ENTER,
+                    format!("Back to {}", away.name),
+                    "back",
+                ),
+                Button::new(Action::Pause, P, "Pause", "pause"),
+                stop(),
+            ],
+            (Phase::Focus, None) => vec![
+                Button::new(Action::Pause, ENTER_OR_P, "Pause", "pause"),
+                stop(),
+            ],
+            (Phase::Paused, _) => vec![
+                Button::new(Action::Resume, ENTER, "Resume", "resume"),
+                stop(),
+            ],
+            (Phase::Break, _) => vec![Button::new(
+                Action::EndBreak,
+                ENTER,
+                "End break",
+                "end break",
+            )],
+        }
+    }
+
+    /// The action of the button under a click.
+    fn button_at(&self, col: u16, row: u16) -> Option<Action> {
+        let offset = row.checked_sub(BUTTON_ROW)?;
+        if offset % BUTTON_LINES != 0 {
+            return None;
+        }
+        let index = usize::from(offset / BUTTON_LINES);
+        let buttons = self.buttons();
+        let rows = self.button_rows(&buttons);
+        let row_buttons = rows.get(index)?;
+        let labels: Vec<String> = row_buttons.iter().map(Button::label).collect();
+        let hit = panel::button_at(&labels, FIRST_BUTTON_COL, col)?;
+        Some(row_buttons[hit].action)
+    }
+
+    /// Acts on one key; a click acts as the button it hits.
+    pub fn press(&mut self, key: Key, ctx: &Context) -> Outcome {
+        let action = match key {
+            Key::Click { col, row } => match self.button_at(col, row) {
+                None => return Outcome::Stay,
+                hit => hit,
+            },
+            key => self
+                .buttons()
+                .into_iter()
+                .find(|button| button.keys.contains(&key))
+                .map(|button| button.action),
+        };
+        self.error = None;
+        if key == Key::Esc {
+            return Outcome::Close;
+        }
+        // Reread: the timer may have changed since the popup was drawn, and a
+        // key must never act on a screen the user is no longer looking at.
+        // Any key redraws for the new timer, even one with no button.
+        let saved = ctx.load();
+        let now = Timestamp::now();
+        let view = timeline::view(&saved, now);
+        if !self.shows(&saved, view) {
+            return Outcome::Reopen(saved);
+        }
+        let Some(action) = action else {
+            return Outcome::Stay;
+        };
+        self.act(action, ctx, &saved, view, now)
+    }
+
+    /// Whether `saved` is still the timer this screen was drawn for.
+    fn shows(&self, saved: &Timer, view: View) -> bool {
+        phase(view) == Some(self.phase)
+            && saved.home_pane == self.timer.home_pane
+            && saved.ends_at == self.timer.ends_at
+            && saved.left_secs == self.timer.left_secs
+    }
+
+    fn act(
+        &mut self,
+        action: Action,
+        ctx: &Context,
+        saved: &Timer,
+        view: View,
+        now: Timestamp,
+    ) -> Outcome {
+        // Beside the new timer, the view it leads to, which picks the sidebar
+        // token. A break shows no token, so ending one leaves the sidebar be.
+        let (next, leads_to) = match (action, view) {
+            (Action::Back, _) => return self.back(ctx),
+            (Action::Pause, View::Focus { left_secs }) => (
+                Timer {
+                    mode: Mode::Paused,
+                    ends_at: None,
+                    left_secs: Some(left_secs),
+                    ..saved.clone()
+                },
+                Some(View::Paused { left_secs }),
+            ),
+            (Action::Resume, View::Paused { left_secs }) => (
+                Timer {
+                    mode: Mode::Focus,
+                    ends_at: Some(Timestamp(now.0 + left_secs)),
+                    left_secs: None,
+                    ..saved.clone()
+                },
+                Some(View::Focus { left_secs }),
+            ),
+            (Action::Stop, _) => (ended(saved), Some(View::Idle)),
+            (Action::EndBreak, _) => (ended(saved), None),
+            // The screen was checked against the timer, so no other pair.
+            _ => return Outcome::Stay,
+        };
+        if let Err(message) = ctx.save(&next) {
+            self.error = Some(message);
+            return Outcome::Stay;
+        }
+        // The tab bar sets the token again every second, so a silent herdr
+        // only delays it.
+        if let (Some(pane), Some(view)) = (saved.home_pane.as_deref(), leads_to) {
+            finish_quietly(
+                ctx.herdr
+                    .report_focus_token(pane, format::focus_token(view)),
+            );
+        }
+        Outcome::Close
+    }
+
+    /// Switches to the home pane; the timer is untouched.
+    fn back(&mut self, ctx: &Context) -> Outcome {
+        let answered = self
+            .away
+            .as_ref()
+            .and_then(|away| ctx.herdr.spawn(&["agent", "focus", &away.pane]))
+            .and_then(|call| call.finish())
+            .is_some();
+        if answered {
+            Outcome::Close
+        } else {
+            self.error = Some(NOT_ANSWERING);
+            Outcome::Stay
+        }
+    }
+}
+
+/// `timer` with nothing running; the remembered choices and the last home
+/// stay.
+fn ended(timer: &Timer) -> Timer {
+    Timer {
+        mode: Mode::Idle,
+        ends_at: None,
+        left_secs: None,
+        message: None,
+        message_ends_at: None,
+        ..timer.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn buttons_are_found_where_they_are_drawn() {
+        let timer = Timer {
+            mode: Mode::Paused,
+            left_secs: Some(60),
+            ..Timer::default()
+        };
+        let popup = ControlPopup {
+            timer,
+            phase: Phase::Paused,
+            away: None,
+            error: None,
+        };
+        // `  Resume ⏎  ` from column 3 is 12 columns, a gap of 2, then
+        // `  Stop s  `.
+        assert_eq!(popup.button_at(3, BUTTON_ROW), Some(Action::Resume));
+        assert_eq!(popup.button_at(14, BUTTON_ROW), Some(Action::Resume));
+        assert_eq!(popup.button_at(15, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(16, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(17, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(26, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(27, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(2, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(5, BUTTON_ROW + 1), None);
+        assert_eq!(popup.button_at(5, BUTTON_ROW - 1), None);
+    }
+
+    #[test]
+    fn away_puts_pause_and_stop_on_the_second_row() {
+        let timer = Timer {
+            mode: Mode::Focus,
+            ends_at: Some(Timestamp(Timestamp::now().0 + 600)),
+            home_pane: Some("p1".into()),
+            home_name: Some("work".into()),
+            ..Timer::default()
+        };
+        let popup = ControlPopup {
+            timer,
+            phase: Phase::Focus,
+            away: Some(Away {
+                pane: "p1".into(),
+                name: "work".into(),
+            }),
+            error: None,
+        };
+        assert_eq!(popup.button_at(3, BUTTON_ROW), Some(Action::Back));
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 1), None);
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 2), Some(Action::Pause));
+        // `  Pause p  ` is 11 columns from column 3, a gap of 2, then Stop.
+        assert_eq!(popup.button_at(16, BUTTON_ROW + 2), Some(Action::Stop));
+    }
+
+    #[test]
+    fn ending_keeps_the_remembered_choices() {
+        let timer = Timer {
+            mode: Mode::Focus,
+            home_pane: Some("p1".into()),
+            home_name: Some("work".into()),
+            ends_at: Some(Timestamp(10)),
+            last_focus_mins: 50,
+            last_break_mins: 10,
+            last_custom_mins: Some(40),
+            ..Timer::default()
+        };
+        let idle = ended(&timer);
+        assert_eq!(idle.mode, Mode::Idle);
+        assert_eq!(idle.home_pane.as_deref(), Some("p1"));
+        assert_eq!(idle.ends_at, None);
+        assert_eq!(idle.last_focus_mins, 50);
+        assert_eq!(idle.last_break_mins, 10);
+        assert_eq!(idle.last_custom_mins, Some(40));
+    }
+}
