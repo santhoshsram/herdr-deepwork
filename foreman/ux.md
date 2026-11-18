@@ -1,7 +1,8 @@
 # herdr-focus: ux
 
 The visual reference is `mock.html` at the repo root (untracked, the user's).
-Root `DESIGN.md` does not exist: open.
+Root `DESIGN.md` is not needed: herdr renders the status as plain text,
+and the popup uses the terminal theme.
 
 ## Fixed places
 
