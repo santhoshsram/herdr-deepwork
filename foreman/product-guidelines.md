@@ -23,7 +23,8 @@
   the popup names it.
 - Do time math. The status shows the minutes left. No seconds: a number
   that changes every second pulls the eye.
-- Edit herdr's `config.toml` more than once: one paste at install.
+- Edit herdr's `config.toml` more than once. At install they copy one block
+  of config from the README into it.
 
 ## What must never happen
 

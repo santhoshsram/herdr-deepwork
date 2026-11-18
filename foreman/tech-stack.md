@@ -41,11 +41,14 @@
 
 ## Open
 
-- Spike: the mouse works inside the popup pane.
-- Spike: `HERDR_ACTIVE_PANE_ID` reaches a tab bar command, for the away nudge.
-- Spike: the cost of a 1 s `/bin/sh -lc` login shell.
-- Spike: `$focus` renders in the sidebar row next to `state_icon`.
-- Spike: pane ids survive a herdr server restart.
-- Spike: a tab bar command gets the binary on PATH, the plugin state dir,
-  and which herdr server it belongs to.
+Unverified, to try in a quick throwaway test before building on it:
+
+- Clicks reach the plugin inside its popup pane.
+- herdr gives a tab bar command `HERDR_ACTIVE_PANE_ID`, so the status can
+  tell when the user is away from home.
+- Starting `/bin/sh -lc` every second costs little enough.
+- `$focus` shows in the sidebar row next to `state_icon`.
+- A pane keeps its id across a herdr server restart.
+- A tab bar command can find the `herdr-focus` program, the plugin's state
+  folder, and which herdr server it belongs to.
 - Build commands in `workflow.md` are `none yet` until `Cargo.toml` exists.

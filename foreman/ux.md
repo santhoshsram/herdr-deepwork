@@ -47,6 +47,8 @@ A break starts on its own when focus ends. The next focus never does.
 
 ## Install
 
-One paste into herdr's `config.toml`: the `prefix+f` binding, the
-`tab_bar_right` command entry, and `$focus` in the agent rows. The README
-holds the paste, as `mock.html` shows it.
+A plugin cannot add a key binding, a tab bar entry or a sidebar token to
+herdr by itself. So the user copies a block of config from the README and
+pastes it into their herdr `config.toml`, once. The block sets `prefix+f` to
+open the popup, adds the tab bar entry, and adds `$focus` to the sidebar's
+agent rows. `mock.html` shows the block.
