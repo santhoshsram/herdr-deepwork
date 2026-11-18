@@ -6,7 +6,7 @@ use crate::format;
 use crate::herdr::{Call, finish_quietly};
 use crate::keys::Key;
 use crate::panel::{
-    self, BOLD, Chip, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET, is_running,
+    self, BOLD, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET, is_running,
 };
 use crate::state::{BREAK_CHOICES, FOCUS_RANGE, Mode, Timer, Timestamp};
 use crate::timeline;
@@ -18,17 +18,13 @@ const CUSTOM: usize = PRESETS.len();
 const UNNAMED: &str = "home";
 const MAX_NAME: usize = 24;
 const MAX_DIGITS: usize = 3;
-/// Rows of the two option rows on screen, each 3 lines of boxes, counted
-/// from 1.
-const FOCUS_ROWS: std::ops::RangeInclusive<u16> = 4..=6;
-const BREAK_ROWS: std::ops::RangeInclusive<u16> = 8..=10;
+/// Screen rows of the Focus and Break options, counted from 1.
+const FOCUS_ROW: u16 = 4;
+const BREAK_ROW: u16 = 6;
 /// Columns taken by `Focus` and `Break` and the space after them.
-const LABEL_WIDTH: usize = 8;
-/// Column of the first chip, counted from 1.
-const FIRST_CHIP_COL: usize = MARGIN.len() + LABEL_WIDTH + 1;
-/// The custom chip keeps this width, so the row does not shift as digits
-/// are typed.
-const CUSTOM_WIDTH: usize = 6;
+const LABEL_WIDTH: usize = 7;
+/// Column of the first option, counted from 1.
+const FIRST_OPTION_COL: usize = MARGIN.len() + LABEL_WIDTH + 1;
 
 static RANGE_ERROR: LazyLock<String> =
     LazyLock::new(|| format!("{} to {}", FOCUS_RANGE.start(), FOCUS_RANGE.end()));
@@ -145,64 +141,57 @@ impl StartPopup {
     /// The screen, one string per line.
     #[must_use]
     pub fn lines(&self) -> Vec<String> {
-        let row = |which: Row, labels: Vec<String>, name: &str| -> Vec<String> {
-            let styled: Vec<(String, Chip)> = labels
-                .into_iter()
-                .enumerate()
-                .map(|(i, label)| {
-                    let style = self.chip(which, i);
-                    (label, style)
-                })
-                .collect();
-            let [top, middle, bottom] = panel::chips(&styled);
-            let pad = " ".repeat(LABEL_WIDTH);
-            vec![
-                format!("{MARGIN}{pad}{top}"),
-                format!("{MARGIN}{DIM}{name:<LABEL_WIDTH$}{RESET}{middle}  {DIM}min{RESET}"),
-                format!("{MARGIN}{pad}{bottom}"),
-            ]
+        // The row the arrow keys move along is bright; both rows show their
+        // choice the same way.
+        let label = |row: Row, name: &str| {
+            let style = if self.row == row { BOLD } else { DIM };
+            format!("{style}{name:<LABEL_WIDTH$}{RESET}")
         };
-        let mut lines = vec![
+        let focus = panel::options(&self.focus_labels(), self.focus_sel);
+        let breaks = panel::options(&break_labels(), self.break_sel);
+        vec![
             String::new(),
             format!("{MARGIN}Focus on {BOLD}{}{RESET}", self.name),
             String::new(),
-        ];
-        lines.extend(row(Row::Focus, self.focus_labels(), "Focus"));
-        // Always one line, so the Break row does not jump when it appears.
-        lines.push(format!(
-            "{MARGIN}{}{RED}{}{RESET}",
-            " ".repeat(LABEL_WIDTH),
-            self.error.unwrap_or_default()
-        ));
-        lines.extend(row(Row::Break, break_labels(), "Break"));
-        lines.extend([
+            format!(
+                "{MARGIN}{}{focus}  {DIM}min{RESET}",
+                label(Row::Focus, "Focus")
+            ),
+            // Always one line, so the Break row does not jump when it appears.
+            format!(
+                "{MARGIN}{}{RED}{}{RESET}",
+                " ".repeat(LABEL_WIDTH),
+                self.error.unwrap_or_default()
+            ),
+            format!(
+                "{MARGIN}{}{breaks}  {DIM}min{RESET}",
+                label(Row::Break, "Break")
+            ),
+            String::new(),
             panel::rule(),
             panel::hints(&[("⏎", "start"), ("← →", "change"), ("↑ ↓", "focus / break")]),
             panel::hints(&[("type a number", "custom minutes"), ("esc", "close")]),
-        ]);
-        lines
+        ]
     }
 
     fn focus_labels(&self) -> Vec<String> {
         let mut labels: Vec<String> = PRESETS.iter().map(u16::to_string).collect();
-        labels.push(format!("{:^CUSTOM_WIDTH$}", self.custom_label()));
+        labels.push(self.custom_label());
         labels
     }
 
-    /// The chip under a click: its row and its index in the row.
+    /// The option under a click: its row and its index in the row.
     fn chip_at(&self, col: u16, row: u16) -> Option<(Row, usize)> {
-        let (which, labels) = if FOCUS_ROWS.contains(&row) {
-            (Row::Focus, self.focus_labels())
-        } else if BREAK_ROWS.contains(&row) {
-            (Row::Break, break_labels())
-        } else {
-            return None;
+        let (which, count) = match row {
+            FOCUS_ROW => (Row::Focus, CUSTOM + 1),
+            BREAK_ROW => (Row::Break, BREAK_CHOICES.len()),
+            _ => return None,
         };
-        let index = panel::hit(&labels, FIRST_CHIP_COL, col)?;
+        let index = panel::option_at(count, FIRST_OPTION_COL, col)?;
         Some((which, index))
     }
 
-    /// The custom chip: the number once selected, else the word `custom`.
+    /// The custom option: the number once selected, else the word `custom`.
     fn custom_label(&self) -> String {
         if self.custom.is_empty() || self.focus_sel != CUSTOM {
             String::from("custom")
@@ -210,20 +199,6 @@ impl StartPopup {
             format!("{}▌", self.custom)
         } else {
             self.custom.clone()
-        }
-    }
-
-    /// The chosen chip of the active row is filled, the chosen chip of the
-    /// other row outlined, so both choices stay visible.
-    fn chip(&self, row: Row, index: usize) -> Chip {
-        let selected = match row {
-            Row::Focus => self.focus_sel == index,
-            Row::Break => self.break_sel == index,
-        };
-        match (selected, self.row == row) {
-            (true, true) => Chip::Selected,
-            (true, false) => Chip::Picked,
-            (false, _) => Chip::Plain,
         }
     }
 
@@ -439,42 +414,39 @@ mod tests {
             out
         };
         let lines = popup.lines();
-        let focus_row = *FOCUS_ROWS.start() + 1;
-        let break_row = *BREAK_ROWS.start() + 1;
-        let focus = plain(&lines[usize::from(focus_row) - 1]);
-        let breaks = plain(&lines[usize::from(break_row) - 1]);
+        let focus = plain(&lines[usize::from(FOCUS_ROW) - 1]);
+        let breaks = plain(&lines[usize::from(BREAK_ROW) - 1]);
         let at = |line: &str, needle: &str| {
             let start = line.find(needle).expect("drawn");
             u16::try_from(line[..start].chars().count() + 1).expect("fits")
         };
         assert_eq!(
-            popup.chip_at(at(&focus, "50"), focus_row),
+            popup.chip_at(at(&focus, "50"), FOCUS_ROW),
             Some((Row::Focus, 2))
         );
         assert_eq!(
-            popup.chip_at(at(&focus, "custom"), focus_row),
-            Some((Row::Focus, CUSTOM))
-        );
-        // The box edges count as the chip too.
-        assert_eq!(
-            popup.chip_at(at(&focus, "custom"), *FOCUS_ROWS.start()),
+            popup.chip_at(at(&focus, "custom"), FOCUS_ROW),
             Some((Row::Focus, CUSTOM))
         );
         assert_eq!(
-            popup.chip_at(at(&breaks, "10"), *BREAK_ROWS.end()),
+            popup.chip_at(at(&breaks, "10"), BREAK_ROW),
             Some((Row::Break, 3))
         );
         assert_eq!(
-            popup.chip_at(at(&breaks, "off") - 2, break_row),
+            popup.chip_at(at(&breaks, "off"), BREAK_ROW),
             Some((Row::Break, 0))
         );
-        // The column between two chips is neither.
-        assert_eq!(popup.chip_at(at(&breaks, "2") - 3, break_row), None);
+        // Every column of a cell counts, the padding too.
+        let first = u16::try_from(FIRST_OPTION_COL).expect("fits");
+        let width = u16::try_from(crate::panel::OPTION_WIDTH).expect("fits");
+        assert_eq!(popup.chip_at(first, BREAK_ROW), Some((Row::Break, 0)));
         assert_eq!(
-            popup.chip_at(at(&breaks, "10"), *FOCUS_ROWS.end() + 1),
-            None
+            popup.chip_at(first + width, BREAK_ROW),
+            Some((Row::Break, 1))
         );
-        assert_eq!(popup.chip_at(1, break_row), None);
+        assert_eq!(popup.chip_at(first - 1, BREAK_ROW), None);
+        assert_eq!(popup.chip_at(first + 4 * width, BREAK_ROW), None);
+        assert_eq!(popup.chip_at(at(&breaks, "10"), FOCUS_ROW + 1), None);
     }
 
     #[test]

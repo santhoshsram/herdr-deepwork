@@ -3,14 +3,14 @@
 use crate::format;
 use crate::herdr::{Call, finish_quietly};
 use crate::keys::Key;
-use crate::panel::{self, BOLD, Chip, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET};
+use crate::panel::{self, BOLD, Context, DIM, MARGIN, NOT_ANSWERING, Outcome, RED, RESET};
 use crate::state::{Mode, Timer, Timestamp};
 use crate::timeline::{self, Phase, View, phase};
 
-/// First screen row of the buttons, counted from 1. Each row of buttons
-/// takes 3 lines.
+/// Screen row of the first line of buttons, counted from 1; a second line
+/// sits 2 rows below it.
 const BUTTON_ROW: u16 = 5;
-const BUTTON_LINES: u16 = 3;
+const BUTTON_LINES: u16 = 2;
 /// Column of the first button, counted from 1.
 const FIRST_BUTTON_COL: usize = MARGIN.len() + 1;
 
@@ -139,22 +139,12 @@ impl ControlPopup {
             format!("{MARGIN}{what}"),
             String::new(),
         ];
-        let mut first = 0;
-        for row in self.button_rows(&buttons) {
-            let drawn: Vec<(String, Chip)> = row
-                .iter()
-                .enumerate()
-                .map(|(i, button)| {
-                    let style = if first + i == 0 {
-                        Chip::Selected
-                    } else {
-                        Chip::Plain
-                    };
-                    (button.label(), style)
-                })
-                .collect();
-            lines.extend(panel::chips(&drawn).map(|line| format!("{MARGIN}{line}")));
-            first += row.len();
+        for (i, row) in self.button_rows(&buttons).into_iter().enumerate() {
+            if i > 0 {
+                lines.push(String::new());
+            }
+            let labels: Vec<String> = row.iter().map(Button::label).collect();
+            lines.push(format!("{MARGIN}{}", panel::buttons(&labels, i == 0)));
         }
         let hints: Vec<(&str, &str)> = buttons
             .iter()
@@ -213,12 +203,16 @@ impl ControlPopup {
 
     /// The action of the button under a click.
     fn button_at(&self, col: u16, row: u16) -> Option<Action> {
-        let index = usize::from(row.checked_sub(BUTTON_ROW)? / BUTTON_LINES);
+        let offset = row.checked_sub(BUTTON_ROW)?;
+        if offset % BUTTON_LINES != 0 {
+            return None;
+        }
+        let index = usize::from(offset / BUTTON_LINES);
         let buttons = self.buttons();
         let rows = self.button_rows(&buttons);
         let row_buttons = rows.get(index)?;
         let labels: Vec<String> = row_buttons.iter().map(Button::label).collect();
-        let hit = panel::hit(&labels, FIRST_BUTTON_COL, col)?;
+        let hit = panel::button_at(&labels, FIRST_BUTTON_COL, col)?;
         Some(row_buttons[hit].action)
     }
 
@@ -359,16 +353,17 @@ mod tests {
             away: None,
             error: None,
         };
-        // `│ Resume ⏎ │` from column 3 is 12 columns, a gap of 1, then
-        // `│ Stop s │`; each button is 3 lines tall.
+        // `  Resume ⏎  ` from column 3 is 12 columns, a gap of 2, then
+        // `  Stop s  `.
         assert_eq!(popup.button_at(3, BUTTON_ROW), Some(Action::Resume));
-        assert_eq!(popup.button_at(14, BUTTON_ROW + 2), Some(Action::Resume));
-        assert_eq!(popup.button_at(15, BUTTON_ROW + 1), None);
-        assert_eq!(popup.button_at(16, BUTTON_ROW + 1), Some(Action::Stop));
-        assert_eq!(popup.button_at(25, BUTTON_ROW + 1), Some(Action::Stop));
-        assert_eq!(popup.button_at(26, BUTTON_ROW + 1), None);
-        assert_eq!(popup.button_at(2, BUTTON_ROW + 1), None);
-        assert_eq!(popup.button_at(5, BUTTON_ROW + 3), None);
+        assert_eq!(popup.button_at(14, BUTTON_ROW), Some(Action::Resume));
+        assert_eq!(popup.button_at(15, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(16, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(17, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(26, BUTTON_ROW), Some(Action::Stop));
+        assert_eq!(popup.button_at(27, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(2, BUTTON_ROW), None);
+        assert_eq!(popup.button_at(5, BUTTON_ROW + 1), None);
         assert_eq!(popup.button_at(5, BUTTON_ROW - 1), None);
     }
 
@@ -390,10 +385,11 @@ mod tests {
             }),
             error: None,
         };
-        assert_eq!(popup.button_at(3, BUTTON_ROW + 1), Some(Action::Back));
-        assert_eq!(popup.button_at(3, BUTTON_ROW + 4), Some(Action::Pause));
-        // `│ Pause p │` is 11 columns from column 3, a gap, then Stop.
-        assert_eq!(popup.button_at(15, BUTTON_ROW + 4), Some(Action::Stop));
+        assert_eq!(popup.button_at(3, BUTTON_ROW), Some(Action::Back));
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 1), None);
+        assert_eq!(popup.button_at(3, BUTTON_ROW + 2), Some(Action::Pause));
+        // `  Pause p  ` is 11 columns from column 3, a gap of 2, then Stop.
+        assert_eq!(popup.button_at(16, BUTTON_ROW + 2), Some(Action::Stop));
     }
 
     #[test]

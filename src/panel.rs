@@ -29,10 +29,10 @@ pub const BOLD: &str = "\x1b[1m";
 pub const DIM: &str = "\x1b[2m";
 /// Red text.
 pub const RED: &str = "\x1b[31m";
-/// Blue text.
-pub const BLUE: &str = "\x1b[34m";
-/// Dark text on blue.
+/// Dark text on the accent blue.
 pub const ON_BLUE: &str = "\x1b[30;44m";
+/// The terminal's grey, as a muted fill.
+pub const ON_GREY: &str = "\x1b[100m";
 
 /// Shown when herdr cannot be reached or does not answer in time.
 pub const NOT_ANSWERING: &str = "herdr is not answering";
@@ -111,45 +111,54 @@ pub fn is_running(view: View) -> bool {
 pub const MARGIN: &str = "  ";
 /// Columns of the divider above the key hints.
 const RULE_WIDTH: usize = 44;
-/// Columns between two chips in a row.
-const CHIP_GAP: &str = " ";
+/// Columns of one option in a row of options.
+pub const OPTION_WIDTH: usize = 8;
+/// Columns between two buttons.
+const BUTTON_GAP: &str = "  ";
 
-/// How a chip is drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Chip {
-    Plain,
-    /// Chosen in a row the keys are not on.
-    Picked,
-    /// Chosen in the row the keys are on, or the button Enter presses.
-    Selected,
+/// A row of options drawn as one bar of equal-width cells, like a segmented
+/// control: the chosen cell filled with the accent, the rest with a muted
+/// fill.
+#[must_use]
+pub fn options<S: AsRef<str>>(labels: &[S], chosen: usize) -> String {
+    labels
+        .iter()
+        .enumerate()
+        .map(|(i, label)| {
+            let fill = if i == chosen { ON_BLUE } else { ON_GREY };
+            format!("{fill}{:^OPTION_WIDTH$}{RESET}", label.as_ref())
+        })
+        .collect()
 }
 
-/// `chips` drawn side by side as rounded boxes: the top, middle and bottom
-/// lines.
+/// The index of the option under column `col`, in a row drawn by
+/// [`options`] from column `first_col`; columns count from 1.
 #[must_use]
-pub fn chips<S: AsRef<str>>(chips: &[(S, Chip)]) -> [String; 3] {
-    let mut lines: [Vec<String>; 3] = Default::default();
-    for (label, style) in chips {
-        let label = label.as_ref();
-        let bar = "─".repeat(label.chars().count() + 2);
-        let (edge, inside) = match style {
-            Chip::Plain => (DIM, String::new()),
-            Chip::Picked => (BLUE, String::from(BLUE)),
-            Chip::Selected => (BLUE, String::from(ON_BLUE)),
-        };
-        lines[0].push(format!("{edge}╭{bar}╮{RESET}"));
-        lines[1].push(format!(
-            "{edge}│{RESET}{inside} {label} {RESET}{edge}│{RESET}"
-        ));
-        lines[2].push(format!("{edge}╰{bar}╯{RESET}"));
-    }
-    lines.map(|line| line.join(CHIP_GAP))
+pub fn option_at(count: usize, first_col: usize, col: u16) -> Option<usize> {
+    let offset = usize::from(col).checked_sub(first_col)?;
+    let index = offset / OPTION_WIDTH;
+    (index < count).then_some(index)
 }
 
-/// The index of the chip under column `col`, in a row of chips drawn by
-/// [`chips`] from column `first_col`; columns count from 1.
+/// Buttons on one line, each its label with 2 columns of fill on either
+/// side; the first filled with the accent when `primary`, the rest muted.
 #[must_use]
-pub fn hit<S: AsRef<str>>(labels: &[S], first_col: usize, col: u16) -> Option<usize> {
+pub fn buttons<S: AsRef<str>>(labels: &[S], primary: bool) -> String {
+    let drawn: Vec<String> = labels
+        .iter()
+        .enumerate()
+        .map(|(i, label)| {
+            let fill = if primary && i == 0 { ON_BLUE } else { ON_GREY };
+            format!("{fill}  {}  {RESET}", label.as_ref())
+        })
+        .collect();
+    drawn.join(BUTTON_GAP)
+}
+
+/// The index of the button under column `col`, in a line drawn by
+/// [`buttons`] from column `first_col`; columns count from 1.
+#[must_use]
+pub fn button_at<S: AsRef<str>>(labels: &[S], first_col: usize, col: u16) -> Option<usize> {
     let col = usize::from(col);
     let mut first = first_col;
     for (index, label) in labels.iter().enumerate() {
@@ -157,7 +166,7 @@ pub fn hit<S: AsRef<str>>(labels: &[S], first_col: usize, col: u16) -> Option<us
         if (first..=last).contains(&col) {
             return Some(index);
         }
-        first = last + 1 + CHIP_GAP.len();
+        first = last + 1 + BUTTON_GAP.len();
     }
     None
 }
