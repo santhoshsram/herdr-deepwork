@@ -13,6 +13,8 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 07 feat(plugin): manifest, install step and README config | AC: AC16 | deps: 03, 05 [726a997]
 - [x] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07 [b9b0b1a]
 - [x] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03 [a7ec5eb]
+- [ ] P1 fix(plugin): README config block is valid TOML | AC: AC16 | deps: none
+- [ ] P2 fix(panel): popups fit their width | AC: AC3 | deps: none
 
 ## Shared contract (all tasks)
 
@@ -444,3 +446,67 @@ Free choice: whether the popup's set call carries the expiry.
 
 ### Out of scope
 - Popup behaviour beyond the optional expiry on its set call
+
+## P1 fix(plugin): README config block is valid TOML
+
+### Goal
+The config block in the README pastes into herdr's `config.toml` and herdr
+accepts it. Found in prove: the `tab_bar_right` command entry is an inline
+table split over two lines, which TOML forbids, so `herdr config check`
+reports "invalid inline table" and herdr falls back to defaults.
+Spec: §Contracts "Config the user copies from the README", AC16
+
+### Context
+- Read first: README.md "Set up herdr"
+- Mirror: tests/install.rs readme_has_config_block
+
+### Contract
+In the README's ```toml block, every inline table (`{ ... }`) opens and
+closes on the same line. The block still holds
+`~/.local/state/herdr/plugins/focus/herdr-focus status`.
+Free choice: line layout otherwise.
+
+### Behaviour
+- B1 Every line of the README's toml block that holds `{` also holds the matching `}` -> readme_inline_tables_on_one_line
+
+### Tests
+- File: tests/install.rs (test-writer owns; implementer never edits)
+- Invariants: other tests in the file unchanged
+
+### Files
+- README.md
+
+### Out of scope
+- Any other README change
+
+## P2 fix(panel): popups fit their width
+
+### Goal
+No popup line wraps. Found in prove: the start popup's key hint line is
+about 79 columns in a 60-column popup (58 inside the border), so it wraps
+mid-word ("cus" / "tom minutes").
+Spec: §Experience "Start popup keys", `ux.md#start-popup`, AC3
+
+### Context
+- Read first: herdr-plugin.toml `[[panes]]` width, src/panel_start.rs, src/panel_control.rs
+- Mirror: tests/panel_start.rs helpers
+
+### Contract
+Every line either popup draws, with ANSI escapes removed, is at most 56
+display columns, for any home name the spec allows (up to 24 characters).
+The key hints keep their words; they may span two lines.
+Free choice: where hint lines break; popup height may change if needed.
+
+### Behaviour
+- B1 Every start popup line is at most 56 columns -> popup_lines_fit_start
+- B2 Every control popup line, in each state and with a 24-character home name, is at most 56 columns -> popup_lines_fit_control
+
+### Tests
+- File: tests/panel_width.rs (test-writer owns; implementer never edits)
+- Invariants: count display columns, treating each char as one column
+
+### Files
+- src/panel_start.rs, src/panel_control.rs, src/panel.rs
+
+### Out of scope
+- Changing button or option text
