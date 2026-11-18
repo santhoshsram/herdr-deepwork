@@ -15,7 +15,7 @@ command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin santh
 
 [[panes]]
 id = "panel"
-title = "Deep Work"
+title = "Focus timer"
 placement = "popup"
 width = 50
 height = 13
