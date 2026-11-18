@@ -27,3 +27,22 @@ cell is written `\|`.
 | ux | Home pane closes during focus | settled | review: timer runs on, no `←` suffix, Home buttons | `spec §Experience` |
 | eng | How away is detected and how Back focuses home | settled | review: `herdr agent list` gives the focused pane; `herdr agent focus` focuses home; `HERDR_ACTIVE_PANE_ID` if the spike shows it works | `herdr agent --help` |
 | eng | Platforms in v1 | settled | review: macOS Apple silicon only | `tech-stack.md`, `spec §Non-functional` |
+| ux | challenger r1 FIX §Experience: the popup pane reads as the focused pane | settled | Judge from the pane focused before `prefix+f` | `spec §Experience` |
+| ux | challenger r1 FIX §Experience: digit typing builds two ways | settled | First digit replaces, later append, 3 max, Backspace deletes | `spec §Experience` |
+| ux | challenger r1 FIX §Users and journeys: J2 display and when choices save | settled | Custom shows 40; saved only on Enter; preset-equal saves as preset | `spec §Users and journeys`, `spec §Experience` |
+| ux | challenger r1 CONTEST §Experience: End break outcome | settled | review: straight to idle, no `Break over`; the mock does this (`act("endbreak")` clears the flash) | `mock.html`, `spec §Users and journeys` J8 |
+| ux | challenger r1 FIX §Experience: control popup keys incomplete | settled | Full key map per state; other keys do nothing | `spec §Experience` |
+| ux | challenger r1 FIX §Experience: rounding of time left | settled | Round up whole seconds | `spec §Experience` |
+| user | challenger r1 CONTEST §Experience: empty title, and a non-agent pane | settled | review: name falls back to agent kind, then `home`; any pane can be home | `spec §Experience` |
+| eng | challenger r1 FIX §Contracts: state file shape not exact | settled | Exact JSON shape | `spec §Contracts` |
+| eng | challenger r1 FIX §Contracts: marker after restart | settled | Marker present in focus and paused while home exists, including after restart | `spec §Contracts`, AC20 |
+| eng | challenger r1 FIX §Contracts: concurrent writes and stale popups | settled | Popup action never undone; acts on state at keypress | `spec §Contracts`, AC14 |
+| eng | challenger r1 FIX §Contracts: herdr unreachable | settled | Status prints without the nudge | `spec §Contracts`, AC13 |
+| eng | challenger r1 CONTEST §Contracts: tab bar command may lack PATH and state dir | settled | review: fall back to herdr's fixed plugin install path with `~`; binary finds the state dir itself; spike in implement | `spec §Contracts`, `herdr plugin install --help` |
+| eng | challenger r1 FIX §Contracts: one timer per server | settled | One state per herdr server | `spec §Contracts` |
+| eng | challenger r1 FIX §Acceptance criteria: AC12 coverage | settled | Unknown shape and first-run choices added | `spec §Acceptance criteria` |
+| eng | challenger r1 FIX §Acceptance criteria: AC15 untestable, BEL | settled | Reworded to a testable claim | `spec §Acceptance criteria` |
+| eng | challenger r1 FIX §Acceptance criteria: AC16 proof | settled | Command output plus screenshot | `spec §Acceptance criteria` |
+| user | challenger r1 FIX §Users and journeys: no Install or End break journey | settled | J8 End break, J9 Install | `spec §Users and journeys` |
+| ux | challenger r1 FIX §Users and journeys: vocabulary drift | settled | "nudge" and `<home>` throughout | `spec §Users and journeys`, `spec §Experience` |
+| eng | challenger r1 FIX §Contracts: manifest install step | settled | `[[build]]` installs the prebuilt release binary | `spec §Contracts` |
