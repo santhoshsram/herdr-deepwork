@@ -70,3 +70,6 @@ cell is written `\|`.
 | eng | challenger r2 CONTEST §Contracts: telling servers apart without the state dir | settled | review: state keyed by herdr server; how the tab bar command learns it is a spike | `spec §Contracts`, `tech-stack.md#open` |
 | eng | Where the program and timer files live | settled | All in `~/.local/state/herdr/plugins/focus/`: the program copied at install and update, and `sessions/<name>/timer.json` per herdr session | user: "go ahead"; herdr checks in `tech-stack.md#what-it-is-made-of` |
 | eng | Copy the program or link it | settled | Copy: the tab bar then depends on nothing in herdr's install folders; a link would also work | user: "go ahead" |
+| eng | How status sets the sidebar tomato | settled | Set or cleared on every run, no `--ttl-ms`; `report-metadata` and `pane get` run side by side, each abandoned after 150 ms | task 03 hand-back |
+| eng | When the away hint shows | settled | Only when `pane get <home>` exits 0 with `result.pane`; control characters stripped from the name; empty `HERDR_ACTIVE_PANE_ID` counts as unset | task 03 hand-back |
+| eng | Test stand-in for herdr runs slow the first time | settled | Tests run the stand-in once before timing, because macOS checks a new file for about 370 ms on its first run | task 03 dispute |
