@@ -12,7 +12,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 06 feat(panel): mouse clicks act like keys | AC: AC17 | deps: 05 [d2ea2cd]
 - [x] 07 feat(plugin): manifest, install step and README config | AC: AC16 | deps: 03, 05 [726a997]
 - [x] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07 [b9b0b1a]
-- [ ] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03
+- [x] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03 [a7ec5eb]
 
 ## Shared contract (all tasks)
 
