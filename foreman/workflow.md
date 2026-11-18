@@ -43,4 +43,9 @@ release with the prebuilt macOS binary. Track archived.
 
 ## Roadmap
 
-`foreman/roadmap.md`, one line per future track.
+GitHub issues labelled `roadmap`, one open issue per future track.
+
+| Do | Run |
+|---|---|
+| List | `gh issue list --label roadmap --state open --limit 1000 --search "sort:created-asc"` |
+| Add | `gh issue create --label roadmap --title <title> --body <body>` |
