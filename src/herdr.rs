@@ -8,6 +8,9 @@ use std::time::{Duration, Instant};
 
 const POLL: Duration = Duration::from_millis(1);
 
+/// How long a sidebar token lives, in ms, unless it is set again.
+const TOKEN_TTL_MS: &str = "3000";
+
 /// The `herdr` program and how long each call may take to answer.
 #[derive(Debug, Clone)]
 pub struct Herdr {
@@ -55,22 +58,18 @@ impl Herdr {
 
     /// Starts a call that sets the sidebar token `focus` on `pane` to
     /// `token`, or clears it when `token` is `None`.
+    ///
+    /// A set expires on its own after [`TOKEN_TTL_MS`], so the status command
+    /// only refreshes it while a timer runs and never has to clear it.
     #[must_use]
     pub fn report_focus_token(&self, pane: &str, token: Option<&str>) -> Option<Call> {
+        let mut args = vec!["pane", "report-metadata", pane, "--source", "herdr-focus"];
         let set = token.map(|value| format!("focus={value}"));
-        let (flag, value) = match &set {
-            Some(set) => ("--token", set.as_str()),
-            None => ("--clear-token", "focus"),
-        };
-        self.spawn(&[
-            "pane",
-            "report-metadata",
-            pane,
-            "--source",
-            "herdr-focus",
-            flag,
-            value,
-        ])
+        match &set {
+            Some(set) => args.extend(["--token", set.as_str(), "--ttl-ms", TOKEN_TTL_MS]),
+            None => args.extend(["--clear-token", "focus"]),
+        }
+        self.spawn(&args)
     }
 
     /// Starts a call that looks `pane` up; [`Call::found_pane`] reads the

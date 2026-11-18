@@ -242,18 +242,12 @@ fn setup(tag: &str, kind: Herdr, timer: &str) -> StateDir {
     state
 }
 
-/// Whether `call` sets the `focus` token on the home pane to `value`.
+/// Whether `call` sets the `focus` token on the home pane to `value`, expiring in 3 s.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
         && call.contains("--source herdr-focus")
         && call.contains(&format!("--token focus={value}"))
-}
-
-/// Whether `call` clears the `focus` token on the home pane.
-fn is_clear_call(call: &str) -> bool {
-    call.starts_with(&format!("pane report-metadata {HOME} "))
-        && call.contains("--source herdr-focus")
-        && call.contains("--clear-token focus")
+        && call.contains("--ttl-ms 3000")
 }
 
 #[test]
@@ -296,7 +290,7 @@ fn status_sets_sidebar_tomato() {
     let calls = focus.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "🍅")),
-        "no focus=🍅 call on {HOME}: {calls:?}"
+        "no focus=🍅 call with --ttl-ms 3000 on {HOME}: {calls:?}"
     );
     assert!(
         calls.iter().all(|call| !call.contains("focus=⏸")),
@@ -309,7 +303,7 @@ fn status_sets_sidebar_tomato() {
     let calls = paused.herdr_calls();
     assert!(
         calls.iter().any(|call| is_set_call(call, "⏸")),
-        "no focus=⏸ call on {HOME}: {calls:?}"
+        "no focus=⏸ call with --ttl-ms 3000 on {HOME}: {calls:?}"
     );
     assert!(
         calls.iter().all(|call| !call.contains("focus=🍅")),
@@ -318,25 +312,19 @@ fn status_sets_sidebar_tomato() {
 }
 
 #[test]
-fn status_clears_sidebar_tomato() {
+fn status_idle_runs_no_herdr() {
     let cases = [
-        ("clear-idle", idle_json(), "🍅"),
-        ("clear-break", focus_json(&ago_secs(90), 5), "🍅 Break 4m"),
-        ("clear-passed", focus_json(&ago_secs(40 * 60), 5), "🍅"),
+        ("quiet-idle", idle_json(), "🍅"),
+        ("quiet-break", focus_json(&ago_secs(90), 5), "🍅 Break 4m"),
+        ("quiet-passed", focus_json(&ago_secs(40 * 60), 5), "🍅"),
+        ("quiet-done", focus_json(&ago_secs(10), 0), "🍅 Focus done"),
     ];
     for (tag, timer, line) in cases {
         let state = setup(tag, Herdr::Normal, &timer);
         let output = run_status(&state, Some(HOME));
         assert_line(&output, line);
         let calls = state.herdr_calls();
-        assert!(
-            calls.iter().any(|call| is_clear_call(call)),
-            "{tag}: no clear-token call on {HOME}: {calls:?}"
-        );
-        assert!(
-            calls.iter().all(|call| !call.contains("--token focus=")),
-            "{tag}: a focus token was set: {calls:?}"
-        );
+        assert!(calls.is_empty(), "{tag}: herdr was called: {calls:?}");
     }
 }
 

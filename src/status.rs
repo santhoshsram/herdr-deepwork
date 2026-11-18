@@ -26,8 +26,10 @@ pub fn status_line() -> String {
 
 fn line_for(herdr: &Herdr, timer: &Timer, view: View, active: Option<&str>) -> String {
     let home = timer.home_pane.as_deref().filter(|p| !p.is_empty());
-    let tomato_call =
-        home.and_then(|pane| herdr.report_focus_token(pane, format::focus_token(view)));
+    // Outside a focus or pause the last token expires by itself, so no call.
+    let tomato_call = home
+        .zip(format::focus_token(view))
+        .and_then(|(pane, token)| herdr.report_focus_token(pane, Some(token)));
 
     let line = format::line(view);
     // The hint shows only while a focus counts down.
