@@ -36,11 +36,11 @@ choice.
 | State | Status |
 |---|---|
 | Idle | `🍅` (herdr may dim it) |
-| Focus | `🍅 18:42` |
-| Focus, away | `🍅 18:42 ← <home>` |
-| Paused | `🍅 Paused 12:05` |
-| Focus ends (1 min) | `🍅 Focus done · break 4:59` |
-| Break | `🍅 Break 4:12` |
+| Focus | `🍅 18m` |
+| Focus, away | `🍅 18m ← <home>` |
+| Paused | `🍅 Paused 12m` |
+| Focus ends (1 min) | `🍅 Focus done · break 5m` |
+| Break | `🍅 Break 4m` |
 | Break ends (1 min, then idle) | `🍅 Break over` |
 
 A break starts on its own when focus ends. The next focus never does.

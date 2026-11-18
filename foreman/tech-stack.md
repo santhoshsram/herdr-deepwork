@@ -14,7 +14,8 @@
 - Sidebar marker: `herdr pane report-metadata <pane> --source focus --token
   focus=🍅`, rendered as `$focus` in the user's
   `[ui.sidebar.agents.rows_by_agent]` rows.
-- Release: a prebuilt macOS binary, so install needs no Rust toolchain.
+- Release: prebuilt binaries for macOS (Apple silicon) and Linux (x86_64,
+  arm64), so install needs no Rust toolchain.
 
 ## Contested choices
 

@@ -2,7 +2,7 @@
 
 ## Voice
 
-- Status and popup text is plain words a glance can read: `🍅 Paused 12:05`,
+- Status and popup text is plain words a glance can read: `🍅 Paused 12m`,
   `🍅 Break over`. The countdown is the only number.
 - No symbol the user has to decode. A symbol earns its place only when it
   reads without a legend: 🍅, ⏸, `←`. Rejected in the mock: ☕ (renders as
@@ -21,7 +21,8 @@
   remembers the last ones, so Enter repeats them.
 - Say which agent is home. It is the one they are in when they start, and
   the popup names it.
-- Do time math. The status shows minutes and seconds left.
+- Do time math. The status shows the minutes left. No seconds: a number
+  that changes every second pulls the eye.
 - Edit herdr's `config.toml` more than once: one paste at install.
 
 ## What must never happen

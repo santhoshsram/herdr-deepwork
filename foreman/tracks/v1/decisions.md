@@ -20,13 +20,13 @@ cell is written `\|`.
 | eng | Contracts that change: CLI output, API, schema, file format | settled | Status line, `state.json`, manifest, marker token, README paste, two subcommands | `spec §Contracts` |
 | eng | What is reused | settled | herdr's popup pane, tab bar command entry, pane metadata tokens, plugin state dir | `tech-stack.md#what-it-is-made-of` |
 | eng | What stays untouched | settled | The user's herdr `config.toml`; herdr itself | `product-guidelines.md#what-must-never-happen` |
-| ux | Time format for long focuses | settled | review: `m:ss`, `mm:ss`, `h:mm:ss` from 1 hour | `spec §Experience` |
+| ux | Time format for long focuses | settled | Minutes only, `25m`, `1h 05m`; seconds change too often and distract | user: "I basically dont want to show seconds as it changes too often and distracts"; `spec §Experience` |
 | ux | What `<agent>` reads as | settled | review: home pane's `terminal_title_stripped`, read at start | `spec §Experience`, `herdr agent list` output |
 | ux | Status when a focus with break off ends | settled | review: `🍅 Focus done` for 1 min, then idle; the mock showed `Break over`, a mock bug | `spec §Experience` |
 | ux | Invalid custom minutes | settled | review: popup stays open with `1 to 180` under the row | `spec §Experience` |
 | ux | Home pane closes during focus | settled | review: timer runs on, no `←` suffix, Home buttons | `spec §Experience` |
 | eng | How away is detected and how Back focuses home | settled | review: `herdr agent list` gives the focused pane; `herdr agent focus` focuses home; `HERDR_ACTIVE_PANE_ID` if the spike shows it works | `herdr agent --help` |
-| eng | Platforms in v1 | settled | review: macOS Apple silicon only | `tech-stack.md`, `spec §Non-functional` |
+| eng | Platforms in v1 | settled | macOS Apple silicon, Linux x86_64 and arm64; no Intel Mac | user: "Add linux builds"; `spec §Non-functional` |
 | ux | challenger r1 FIX §Experience: the popup pane reads as the focused pane | settled | Judge from the pane focused before `prefix+f` | `spec §Experience` |
 | ux | challenger r1 FIX §Experience: digit typing builds two ways | settled | First digit replaces, later append, 3 max, Backspace deletes | `spec §Experience` |
 | ux | challenger r1 FIX §Users and journeys: J2 display and when choices save | settled | Custom shows 40; saved only on Enter; preset-equal saves as preset | `spec §Users and journeys`, `spec §Experience` |
@@ -47,7 +47,7 @@ cell is written `\|`.
 | ux | challenger r1 FIX §Users and journeys: vocabulary drift | settled | "nudge" and `<home>` throughout | `spec §Users and journeys`, `spec §Experience` |
 | eng | challenger r1 FIX §Contracts: manifest install step | settled | `[[build]]` installs the prebuilt release binary | `spec §Contracts` |
 | eng | challenger r2 FIX §Contracts: transitions the clock already passed | settled | Timeline derived from stored times; passed states skipped | `spec §Contracts` Timeline, AC11 |
-| ux | challenger r2 FIX §Users and journeys: J6 flash time vs round-up | settled | Flash counts down from 5:00, then `Break` from 4:00 | `spec §Users and journeys` J6 |
+| ux | challenger r2 FIX §Users and journeys: J6 flash time vs round-up | settled | Superseded by minutes only: `Focus done · break 5m`, then `Break 4m` | `spec §Users and journeys` J6 |
 | eng | challenger r2 FIX §Acceptance criteria: AC20 proof | settled | Proof: test | `spec §Acceptance criteria` |
 | eng | challenger r2 FIX §Acceptance criteria: status must clear the marker | settled | AC15 allows clearing; AC9 checks it | `spec §Acceptance criteria` |
 | eng | challenger r2 FIX §Acceptance criteria: AC1 vs flash states | settled | "idle with no flash showing" | `spec §Acceptance criteria` |

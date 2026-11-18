@@ -12,7 +12,7 @@ The user is the developer in `product.md#who-uses-it`.
 
 - **J1 Start.** Given no timer runs and the user is in agent A, when they
   press `prefix+f` and Enter, then a focus of the last chosen length (25 min
-  on first run) starts with A as home, and the status shows `🍅 25:00`
+  on first run) starts with A as home, and the status shows `🍅 25m`
   counting down.
 - **J2 Custom length.** Given the start popup is open, when the user types
   `40` and Enter, then a 40 min focus starts, and the next start popup
@@ -25,19 +25,19 @@ The user is the developer in `product.md#who-uses-it`.
   `🍅 Paused <time>`. Resume counts down from the same time.
 - **J5 Stop.** Given a focus or pause, when the user presses `prefix+f` and
   `s`, then the timer ends with no break and the status goes idle.
-- **J6 Break.** Given a focus with a 5 min break reaches 0:00, then the
-  break starts on its own. For the break's first minute the status shows
-  `🍅 Focus done · break <time>` counting down from 5:00, then
-  `🍅 Break <time>` from 4:00. At 0:00 it shows `🍅 Break over` for 1 min,
-  then idle. No focus starts on its own.
+- **J6 Break.** Given a focus with a 5 min break runs out, then the break
+  starts on its own. For the break's first minute the status shows
+  `🍅 Focus done · break 5m`, then `🍅 Break 4m` and down. When the break
+  runs out, the status shows `🍅 Break over` for 1 min, then idle. No focus
+  starts on its own.
 - **J7 Restart.** Given a timer runs, when the user detaches, or the herdr
   server restarts, and comes back, then the status shows where the real
   timeline is now, and the marker is back on home if the focus still runs.
-- **J8 End break.** Given a break runs, when the user presses `prefix+f` and
-  Enter, then the break ends and the status goes idle at once, with no
-  `🍅 Break over`.
-- **J9 Install.** Given herdr 0.9.5 on an Apple silicon Mac with no Rust
-  toolchain, when the user runs `herdr plugin install
+- **J8 End break early.** Given a break runs, when the user presses
+  `prefix+f` and Enter (End break), then the break ends and the status goes
+  idle at once. It shows no `🍅 Break over`, because the user ended it.
+- **J9 Install.** Given herdr 0.9.5 on an Apple silicon Mac or a Linux
+  machine (x86_64 or arm64) with no Rust toolchain, when the user runs `herdr plugin install
   santhoshsram/herdr-focus` and pastes the README block into `config.toml`,
   then the tab bar shows `🍅`.
 
@@ -47,10 +47,9 @@ The user is the developer in `product.md#who-uses-it`.
 `mock.html` at the repo root shows them. This section adds what `ux.md`
 leaves open.
 
-- **Time format.** `m:ss` below 10 min, `mm:ss` up to 59:59, `h:mm:ss`
-  from 1 hour (custom lengths go to 180 min). Time left is whole seconds,
-  rounded up, so a 25 min focus shows `25:00` at start and `0:01` in its
-  last second.
+- **Time format.** Minutes only, never seconds: `25m`, `4m`; from 1 hour,
+  `1h 05m` (custom lengths go to 180 min). Minutes round up, so a 25 min
+  focus shows `25m` for its first minute and `1m` for its last.
 - **Popup and focus.** The current agent, home at start, and Home vs Away in
   the control popup are all judged from the pane focused just before
   `prefix+f`. The popup pane never counts as away.
@@ -136,7 +135,8 @@ leaves open.
   herdr command other than reading panes and setting or clearing the
   marker, and its output holds no BEL or other control character. Proof:
   test
-- AC16: When a user installs on a Mac with no `cargo` on PATH, then J9
+- AC16: When a user installs on an Apple silicon Mac or on Linux with no
+  `cargo` on PATH, then J9
   holds. Proof: command output (install) and screenshot (status in the tab
   bar)
 - AC17: When the user clicks a popup button or option, then it acts like
@@ -195,8 +195,8 @@ leaves open.
   of one server always resolve the same state dir.
 - **Plugin manifest.** `herdr-plugin.toml` with id `focus`, the action
   `focus.open` that opens the popup pane, and a `[[build]]` step that
-  installs this version's prebuilt macOS arm64 binary from the GitHub
-  release, with no Rust toolchain. On any other platform, or if the
+  installs this version's prebuilt binary for the machine from the GitHub
+  release (macOS arm64, Linux x86_64, Linux arm64), with no Rust toolchain. On any other platform, or if the
   download fails, the step exits non-zero with a one-line reason and
   installs nothing.
 - **Sidebar marker.** Pane metadata token `focus` on home: `🍅` in focus,
@@ -230,7 +230,8 @@ leaves open.
 
 - The status command runs every second, so it starts and exits in under
   200 ms and makes no network call.
-- Prebuilt binary for macOS on Apple silicon. Other platforms: none in v1.
+- Prebuilt binaries for macOS on Apple silicon and Linux on x86_64 and
+  arm64.
 - The timer drifts by less than 1 s per focus, because it reads the end
   time, not a tick count.
 
@@ -247,5 +248,5 @@ leaves open.
 - Muting other agents' toasts (#1).
 - Starting from the mouse outside the popup (#2).
 - Marketplace publishing (#3).
-- Linux and Intel Mac binaries.
+- Intel Mac binaries.
 - Counts, history, sounds, notifications, multiple timers, a config file.
