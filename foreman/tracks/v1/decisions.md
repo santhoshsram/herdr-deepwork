@@ -81,3 +81,4 @@ cell is written `\|`.
 | eng | How the action opens the popup | settled | `sh -c` wrapper so `$HERDR_BIN_PATH` expands; pane runs `bin/herdr-focus panel` from the plugin folder | task 07 hand-back |
 | eng | Linux binary compatibility | settled | review: built on ubuntu-24.04 runners, so they need glibc 2.39 or newer (no Ubuntu 22.04, Debian 12); a static musl build would widen this | task 08 hand-back |
 | eng | Release tag and version | settled | review: the tag must be `v` plus `herdr-plugin.toml` `version`; the workflow does not check it | task 08 hand-back |
+| eng | How the sidebar 🍅 goes away | settled | Set with a 3-second expiry every status run during focus or pause; the status command never removes it, so no herdr call runs when no timer runs; the popup's Stop still removes it at once | user: "yes go ahead"; simplify efficiency review |

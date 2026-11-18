@@ -12,6 +12,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 06 feat(panel): mouse clicks act like keys | AC: AC17 | deps: 05 [d2ea2cd]
 - [x] 07 feat(plugin): manifest, install step and README config | AC: AC16 | deps: 03, 05 [726a997]
 - [x] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07 [b9b0b1a]
+- [ ] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03
 
 ## Shared contract (all tasks)
 
@@ -409,3 +410,37 @@ Free choice: runners, cross-compilation method.
 
 ### Out of scope
 - Publishing to the marketplace (#3)
+
+## 09 perf(status): sidebar tomato expires instead of being cleared
+
+### Goal
+The status command stops running a herdr command every second when no timer
+runs. It sets the 🍅 or ⏸ with a 3-second expiry, and never removes it.
+Spec: §Contracts "The 🍅 after home's sidebar row", AC9, AC15
+
+### Context
+- Read first: spec §Contracts "The 🍅 after home's sidebar row"
+- Mirror: src/status.rs, src/herdr.rs (`report_focus_token`)
+
+### Contract
+During a focus or a pause, `status` calls
+`<herdr> pane report-metadata <home_pane> --source herdr-focus --token
+focus=🍅 --ttl-ms 3000` (`focus=⏸` while paused). In every other state
+`status` runs no herdr command at all: no `--clear-token`, no `pane get`.
+The popup is unchanged: Stop still calls `--clear-token focus`, and its
+set calls may carry the same `--ttl-ms 3000`.
+Free choice: whether the popup's set call carries the expiry.
+
+### Behaviour
+- B1 During a focus, `status` shall set `focus=🍅` with `--ttl-ms 3000`; while paused, `focus=⏸` with `--ttl-ms 3000` -> status_sets_sidebar_tomato
+- B2 When idle, in a break, or after a focus ran out, `status` shall run no herdr command -> status_clears_sidebar_tomato (rename to status_idle_runs_no_herdr)
+
+### Tests
+- File: tests/status_herdr.rs (test-writer owns; implementer never edits)
+- Invariants: other tests in the file keep passing unchanged
+
+### Files
+- src/status.rs, src/herdr.rs
+
+### Out of scope
+- Popup behaviour beyond the optional expiry on its set call

@@ -130,7 +130,8 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
 - AC8: When the user stops, then the tab bar shows `🍅` and the 🍅 after
   home's sidebar row goes away. Proof: test
 - AC9: When a focus with a break runs out, then the tab bar follows J6
-  exactly, the 🍅 after home's sidebar row goes away, and no focus starts.
+  exactly, the 🍅 after home's sidebar row goes away within 3 seconds, and
+  no focus starts.
   Proof: test
 - AC10: When a focus with break off runs out, then the tab bar shows
   `🍅 Focus done` for 1 min, then `🍅`. Proof: test
@@ -149,8 +150,8 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
   before the timer started does nothing but switch the popup to the running
   timer's buttons. Proof: test
 - AC15: When the status command runs, in any state, then the only herdr
-  commands it runs read pane information or set and clear the 🍅 or ⏸ after
-  home's row. Its output holds no bell or other control character. Proof:
+  commands it runs read pane information or set the 🍅 or ⏸ after home's
+  row. With no timer running it runs no herdr command at all. Its output holds no bell or other control character. Proof:
   test
 - AC16: When a user installs on an Apple silicon Mac or on Linux with no
   `cargo` installed, then J9 holds. Proof: command output (install) and
@@ -238,7 +239,12 @@ at the repo root shows them. This section covers what `ux.md` leaves open.
 - **The 🍅 after home's sidebar row.** The plugin sets it as pane metadata
   token `focus` on the home pane: `🍅` during a focus, `⏸` while paused. It
   stays as long as the home pane exists, including after a server restart.
-  In every other state the plugin clears it.
+  Every time the plugin sets it, it tells herdr to drop it after 3 seconds
+  (`--ttl-ms 3000`). The status command sets it again every second while a
+  focus runs or is paused, so it stays; in every other state nothing sets
+  it, and it disappears within 3 seconds. The status command never asks
+  herdr to remove it, so it runs no herdr command when no timer runs. Stop
+  in the popup still removes it at once.
 - **Config the user copies from the README.** A plugin cannot add a key
   binding, a tab bar entry or a sidebar token to herdr by itself. So the
   README holds a block of config for the user to copy into their herdr
