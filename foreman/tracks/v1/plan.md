@@ -4,7 +4,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 
 ## Tasks
 
-- [ ] 01 feat(status): status prints the idle tomato | AC: AC1, AC12, AC13 | deps: none
+- [x] 01 feat(status): status prints the idle tomato | AC: AC1, AC12, AC13 | deps: none [75b6fd8]
 - [ ] 02 feat(status): status follows the timer timeline | AC: AC7, AC9, AC10, AC11 | deps: 01
 - [ ] 03 feat(status): status adds the away hint and keeps the sidebar tomato | AC: AC5, AC8, AC13, AC15, AC20 | deps: 02
 - [ ] 04 feat(panel): start popup starts a focus | AC: AC2, AC3, AC4, AC14, AC19 | deps: 02
