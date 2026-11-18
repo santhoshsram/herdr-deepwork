@@ -5,12 +5,12 @@ use std::path::PathBuf;
 use std::process::{Command, ExitCode, Stdio};
 use std::time::Duration;
 
-use crate::format;
 use crate::herdr::Herdr;
-use crate::keys::{Key, KeyReader};
+use crate::keys::KeyReader;
+use crate::panel_control::ControlPopup;
 use crate::panel_start::{self, StartPopup};
-use crate::state::{self, Timer, Timestamp};
-use crate::timeline::{self, View};
+use crate::state::{self, Timer};
+use crate::timeline::View;
 
 /// How long herdr gets to answer a call the popup waits on.
 const HERDR_BUDGET: Duration = Duration::from_secs(1);
@@ -139,7 +139,7 @@ fn draw_frame(lines: &[String]) {
 
 enum Screen {
     Start(StartPopup),
-    Control,
+    Control(ControlPopup),
 }
 
 /// What a screen does with a key.
@@ -151,55 +151,40 @@ pub enum Outcome {
     Close,
     /// A timer runs, so the control popup takes over.
     Running,
+    /// No timer runs, so the start popup takes over.
+    Idle,
+}
+
+/// The popup that fits the timer: control while it runs, else start.
+fn screen_for(ctx: &Context, timer: &Timer) -> Screen {
+    match ControlPopup::open(ctx, timer) {
+        Some(popup) => Screen::Control(popup),
+        None => Screen::Start(panel_start::open(ctx, timer)),
+    }
 }
 
 /// Runs the popup until a key closes it or stdin reaches EOF.
 #[must_use]
 pub fn run() -> ExitCode {
     let ctx = Context::from_env();
-    let timer = ctx.load();
-    let mut screen = if is_running(timeline::view(&timer, Timestamp::now())) {
-        Screen::Control
-    } else {
-        Screen::Start(panel_start::open(&ctx, &timer))
-    };
+    let mut screen = screen_for(&ctx, &ctx.load());
     let _terminal = Terminal::enter();
     let mut keys = KeyReader::from_stdin();
     loop {
         draw_frame(&match &screen {
             Screen::Start(popup) => popup.lines(),
-            Screen::Control => control_lines(&ctx.load()),
+            Screen::Control(popup) => popup.lines(),
         });
         let Some(key) = keys.next_key() else { break };
         let outcome = match &mut screen {
             Screen::Start(popup) => popup.press(key, &ctx),
-            Screen::Control if key == Key::Esc => Outcome::Close,
-            Screen::Control => Outcome::Stay,
+            Screen::Control(popup) => popup.press(key, &ctx),
         };
         match outcome {
             Outcome::Stay => {}
             Outcome::Close => break,
-            Outcome::Running => screen = Screen::Control,
+            Outcome::Running | Outcome::Idle => screen = screen_for(&ctx, &ctx.load()),
         }
     }
     ExitCode::SUCCESS
-}
-
-/// A stand-in for the control popup: shows the running timer and acts on
-/// nothing.
-fn control_lines(timer: &Timer) -> Vec<String> {
-    let view = timeline::view(timer, Timestamp::now());
-    let mut lines = vec![String::from("\x1b[2mfocus\x1b[0m"), String::new()];
-    lines.push(format::line(view));
-    let name = timer
-        .home_name
-        .as_deref()
-        .filter(|_| !matches!(view, View::Break { .. }));
-    if let Some(name) = name {
-        let name: String = name.chars().filter(|c| !c.is_control()).collect();
-        lines.push(format!("on \x1b[1m{name}\x1b[0m"));
-    }
-    lines.push(String::new());
-    lines.push(String::from("\x1b[1mesc\x1b[0m close"));
-    lines
 }

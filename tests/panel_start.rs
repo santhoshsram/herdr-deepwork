@@ -631,7 +631,7 @@ fn panel_never_starts_second_timer() {
         state.herdr_calls()
     );
 
-    // Paused and break popups act on Enter, but none may start a new focus.
+    // Paused and break popups act on Enter, but none may move home.
     for (tag, timer) in [
         ("paused", paused_json(OTHER, "other")),
         ("break", break_json()),
@@ -641,9 +641,14 @@ fn panel_never_starts_second_timer() {
         let run = run_panel(&state, &[ENTER]);
         assert!(!run.screen.is_empty(), "{tag}: the panel drew nothing");
         let after = state.read_timer();
-        assert!(
-            after["mode"] != "focus" && after["home_pane"] != HOME,
-            "{tag}: a new focus started: {after}"
+        let before: Value = serde_json::from_str(&timer).expect("fixture is JSON");
+        assert_eq!(
+            after["home_pane"], before["home_pane"],
+            "{tag}: home pane changed: {after}"
+        );
+        assert_eq!(
+            after["home_name"], before["home_name"],
+            "{tag}: home name changed: {after}"
         );
         assert!(
             state
