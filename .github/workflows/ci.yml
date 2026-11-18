@@ -1,9 +1,17 @@
 name: ci
 
+# `CI Gate` is the one required status check: branch protection names it
+# instead of each job, so adding or removing a job never needs a settings
+# change.
+
 on:
   pull_request:
   push:
     branches: [main]
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -52,3 +60,24 @@ jobs:
       - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           advanced-security: false
+
+  ci-gate:
+    name: CI Gate
+    # `!cancelled()` so the gate still reports when a job fails; without it a
+    # failed job would skip the gate, and a skipped required check never
+    # resolves.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    needs: [check, dependencies, scripts, workflows]
+    steps:
+      - name: Verify every job succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success") | .key' <<<"$NEEDS_JSON")
+          if [ -n "$failed" ]; then
+            echo "::error::These jobs did not succeed:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All jobs succeeded."
