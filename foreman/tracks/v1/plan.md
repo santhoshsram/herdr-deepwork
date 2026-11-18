@@ -13,7 +13,7 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] 07 feat(plugin): manifest, install step and README config | AC: AC16 | deps: 03, 05 [726a997]
 - [x] 08 ci(release): build and publish the three binaries | AC: AC16 | deps: 07 [b9b0b1a]
 - [x] 09 perf(status): sidebar tomato expires instead of being cleared | AC: AC9, AC15 | deps: 03 [a7ec5eb]
-- [ ] P1 fix(plugin): README config block is valid TOML | AC: AC16 | deps: none
+- [x] P1 fix(plugin): README config block is valid TOML | AC: AC16 | deps: none [75a5b9b]
 - [ ] P2 fix(panel): popups fit their width | AC: AC3 | deps: none
 
 ## Shared contract (all tasks)
