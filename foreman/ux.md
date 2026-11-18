@@ -6,7 +6,8 @@ and the popup uses the terminal theme.
 
 ## Fixed places
 
-- **Status:** the tab bar's right side, in place of the datetime entry.
+- **Status:** the last entry on the tab bar's right side; the user's other
+  entries stay.
 - **Popup:** a herdr popup pane, only when the user presses `prefix+f`.
 - **Marker:** 🍅 (⏸ when paused) after the home agent's sidebar row.
 
@@ -22,12 +23,19 @@ rows, type a number for custom minutes (1 to 180), Enter starts, esc closes.
 · 10. First run is 25 min focus, 5 min break; later runs repeat the last
 choice.
 
+## Popup look
+
+A 50 x 13 popup with a 2-column margin. Options are one bar of equal cells,
+like a segmented control: the choice filled with the accent, the others
+grey, the same in both rows; the active row's label is bright. Buttons are
+filled pills, the main one accent. A line sits above the key hints.
+
 ## Control popup
 
 | State | Buttons |
 |---|---|
 | Home | Pause ⏎ · Stop s |
-| Away | Back to <home> ⏎ · Pause p · Stop s |
+| Away | Back to <home> ⏎, then Pause p · Stop s on the next row |
 | Paused | Resume · Stop |
 | Break | End break |
 
@@ -48,7 +56,8 @@ A break starts on its own when focus ends. The next focus never does.
 ## Install
 
 A plugin cannot add a key binding, a tab bar entry or a sidebar token to
-herdr by itself. So the user copies a block of config from the README and
-pastes it into their herdr `config.toml`, once. The block sets `prefix+f` to
-open the popup, adds the tab bar entry, and adds `$focus` to the sidebar's
-agent rows. `mock.html` shows the block.
+herdr by itself. So the user pastes one line from the README into their
+coding agent, which follows `SETUP.md`: it installs the plugin if missing,
+backs up `config.toml`, and merges in `prefix+f`, the tab bar entry (last)
+and `$focus` on the sidebar rows, keeping what the user has. The README also
+has the block for doing it by hand.

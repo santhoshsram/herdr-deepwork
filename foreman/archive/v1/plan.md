@@ -16,6 +16,8 @@ Spec: `spec.md`. Tasks run in order; a task runs once its deps are done.
 - [x] P1 fix(plugin): README config block is valid TOML | AC: AC16 | deps: none [75a5b9b]
 - [x] P2 fix(panel): popups fit their width | AC: AC3 | deps: none [6363011]
 - [x] P3 fix(plugin): popup runs the one installed copy | AC: AC16 | deps: none [12e781e]
+- [x] P4 fix(panel): popups drawn as in the mock | AC: AC3, AC17 | deps: none [655f64f]
+- [x] P5 fix(panel): options as a segmented bar, buttons as filled pills | AC: AC3, AC17 | deps: P4 [5380817]
 
 ## Shared contract (all tasks)
 
@@ -533,3 +535,31 @@ The `panel` pane command runs that program with the argument `panel`.
 
 ### Files
 - herdr-plugin.toml, scripts/install.sh
+
+## P4 fix(panel): popups drawn as in the mock
+
+### Goal
+The user's look at the real popup: too big, no margins, plain text where the
+mock had boxes. Away from home, Pause and Stop share a line.
+Spec: §Experience, `mock.html`, AC3, AC17
+
+### Behaviour
+- B1 Clicks hit the option or button drawn under them -> chips_are_found_where_they_are_drawn, buttons_are_found_where_they_are_drawn
+- B2 Away, Back is on its own row, Pause and Stop on the next -> away_puts_pause_and_stop_on_the_second_row
+- B3 Every line fits the smaller popup -> tests/panel_width.rs
+
+### Files
+- src/panel.rs, src/panel_start.rs, src/panel_control.rs, herdr-plugin.toml
+
+## P5 fix(panel): options as a segmented bar, buttons as filled pills
+
+### Goal
+The user's second look: boxes around a filled cell drew uneven margins, and
+the two rows marked their choice differently.
+
+### Behaviour
+- B1 Every column of an option cell selects it; outside the bar nothing does -> chips_are_found_where_they_are_drawn
+- B2 Button clicks land on the line the buttons are drawn on -> buttons_are_found_where_they_are_drawn, away_puts_pause_and_stop_on_the_second_row
+
+### Files
+- src/panel.rs, src/panel_start.rs, src/panel_control.rs, herdr-plugin.toml

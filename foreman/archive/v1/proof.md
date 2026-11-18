@@ -60,3 +60,10 @@ For the user to run; prove could not.
 - Home title empty after restart (AC19) -> held: falls back to `claude`
 - Status run with live herdr 30 times through a login shell (AC13) -> held
 - Pane command run as herdr runs it, no shell, fake home, after P3 (AC16) -> held: the popup drew from the state-folder copy; `cargo test` 82 passed
+- Popup look after P4 and P5 (AC3, AC17) -> held: the user opened the
+  installed popup in their own herdr and checked it by eye; mouse click areas
+  re-tested in `cargo test`, 85 passed at `78c7ecc`
+- `SETUP.md` config step on an empty config, a config with a clock and two
+  agents, and a set-up config -> held: a fresh agent kept every entry, added
+  the timer last, and all 3 passed `herdr config check`; 8 unclear lines it
+  found were fixed in `c3662e0`
