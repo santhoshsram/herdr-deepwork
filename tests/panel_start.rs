@@ -432,7 +432,7 @@ fn assert_started(
     );
 }
 
-/// Whether `call` sets the `focus` token on `HOME` to `value`.
+/// Whether `call` sets the `deepwork` token on `HOME` to `value`.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
         && call.contains("--source herdr-deepwork")

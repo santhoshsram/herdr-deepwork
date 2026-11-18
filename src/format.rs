@@ -8,7 +8,7 @@ pub const TOMATO: &str = "🍅";
 /// The sidebar token while a focus is held.
 pub const PAUSED: &str = "⏸";
 
-/// The sidebar `focus` token for `view`; `None` when the token is cleared.
+/// The sidebar `deepwork` token for `view`; `None` when the token is cleared.
 #[must_use]
 pub fn focus_token(view: View) -> Option<&'static str> {
     match view {

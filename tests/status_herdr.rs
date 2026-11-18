@@ -254,7 +254,7 @@ fn setup(tag: &str, kind: Herdr, timer: &str) -> StateDir {
     state
 }
 
-/// Whether `call` sets the `focus` token on the home pane to `value`, expiring in 3 s.
+/// Whether `call` sets the `deepwork` token on the home pane to `value`, expiring in 3 s.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
         && call.contains("--source herdr-deepwork")

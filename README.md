@@ -78,7 +78,7 @@ Arrow keys and the mouse both work.
 ## Uninstall
 
 ```
-herdr plugin uninstall focus
+herdr plugin uninstall santhoshsram.deepwork
 rm -rf ~/.local/state/herdr/plugins/santhoshsram.deepwork
 ```
 

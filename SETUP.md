@@ -9,8 +9,8 @@ its output. Ask the user only where this file says to.
 
 1. Run `herdr --version`. herdr must be 0.9.5 or newer. If it is older, tell
    the user to update herdr and stop.
-2. Run `herdr plugin list`. If it lists `focus`, the plugin is installed:
-   skip to "2. Add the config".
+2. Run `herdr plugin list`. If it lists `santhoshsram.deepwork`, the plugin
+   is installed: skip to "2. Add the config".
 3. Ask the user to confirm the install, because herdr runs the plugin's
    install step on their machine. On yes, run
    `herdr plugin install --yes santhoshsram/herdr-deepwork`. It downloads a
@@ -101,4 +101,4 @@ Tell the user, in a few lines:
 
 ## Undo
 
-Restore the backup, then run `herdr plugin uninstall focus`.
+Restore the backup, then run `herdr plugin uninstall santhoshsram.deepwork`.

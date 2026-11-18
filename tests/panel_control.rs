@@ -430,14 +430,14 @@ fn assert_shows(screen: &str, texts: &[&str]) {
     }
 }
 
-/// Whether `call` sets the `focus` token on `HOME` to `value`.
+/// Whether `call` sets the `deepwork` token on `HOME` to `value`.
 fn is_set_call(call: &str, value: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
         && call.contains("--source herdr-deepwork")
         && call.contains(&format!("--token deepwork={value}"))
 }
 
-/// Whether `call` clears the `focus` token on `HOME`.
+/// Whether `call` clears the `deepwork` token on `HOME`.
 fn is_clear_call(call: &str) -> bool {
     call.starts_with(&format!("pane report-metadata {HOME} "))
         && call.contains("--source herdr-deepwork")
