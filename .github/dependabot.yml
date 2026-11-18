@@ -4,7 +4,13 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # A new release gets a week for problems to surface before it is proposed.
+    cooldown:
+      default-days: 7
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    # A new release gets a week for problems to surface before it is proposed.
+    cooldown:
+      default-days: 7

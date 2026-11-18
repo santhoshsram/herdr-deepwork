@@ -290,7 +290,6 @@ fn screen_for(ctx: &Context, timer: &Timer) -> Screen {
 }
 
 /// Runs the popup until a key closes it or stdin reaches EOF.
-#[must_use]
 pub fn run() -> ExitCode {
     let ctx = Context::from_env();
     // herdr answers while stty sets up the terminal.
