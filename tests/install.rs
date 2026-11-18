@@ -279,6 +279,74 @@ fn parse_manifest(text: &str) -> Manifest {
     Manifest { top, tables }
 }
 
+/// A TOML array of basic strings, as one raw value, into its items.
+fn string_array(value: &str) -> Vec<String> {
+    let inner = value
+        .trim()
+        .strip_prefix('[')
+        .and_then(|v| v.strip_suffix(']'))
+        .expect("value is an array");
+    let mut items = Vec::new();
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c != '"' {
+            continue;
+        }
+        let mut item = String::new();
+        while let Some(c) = chars.next() {
+            match c {
+                '\\' => item.push(chars.next().expect("escape has a char")),
+                '"' => break,
+                c => item.push(c),
+            }
+        }
+        items.push(item);
+    }
+    items
+}
+
+#[test]
+fn manifest_panel_runs_installed_program() {
+    let sandbox = Sandbox::new("panel-command");
+    let text = fs::read_to_string(sandbox.plugin().join("herdr-plugin.toml"))
+        .expect("read herdr-plugin.toml");
+    let doc = parse_manifest(&text);
+    let panel = doc
+        .tables("panes")
+        .into_iter()
+        .find(|p| get(p, "id").map(unquote) == Some("panel"))
+        .expect("a [[panes]] with id \"panel\"");
+    let argv = string_array(get(panel, "command").expect("panel has a command"));
+
+    let installed = sandbox.installed();
+    fs::create_dir_all(installed.parent().expect("installed has a folder"))
+        .expect("create state folder");
+    let args_log = sandbox.root.join("args.txt");
+    fs::write(
+        &installed,
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"{}\"\n",
+            args_log.display()
+        ),
+    )
+    .expect("write fake installed program");
+    make_executable(&installed);
+
+    // herdr runs pane commands without a shell, from the plugin folder.
+    let status = Command::new(&argv[0])
+        .args(&argv[1..])
+        .current_dir(sandbox.plugin())
+        .env("HOME", sandbox.home())
+        .stdin(Stdio::null())
+        .status()
+        .expect("run the panel command");
+    assert!(status.success(), "panel command failed: {status}");
+    assert_eq!(
+        fs::read_to_string(&args_log).expect("the installed program ran"),
+        "panel\n"
+    );
+}
+
 #[test]
 fn install_refuses_unknown_machine() {
     for (sys, machine) in [
@@ -344,10 +412,9 @@ fn install_copies_binary() {
             .permissions()
             .mode();
         assert!(mode & 0o111 != 0, "installed binary must be executable");
-        assert_eq!(
-            fs::read_to_string(sandbox.plugin_copy()).expect("plugin folder copy exists"),
-            want,
-            "{sys} {machine}: wrong binary in the plugin folder"
+        assert!(
+            !sandbox.plugin().join("bin").exists(),
+            "{sys} {machine}: the install step keeps one copy, outside the plugin folder"
         );
         let url = format!("{base}/v{}/{asset}", sandbox.version());
         assert!(

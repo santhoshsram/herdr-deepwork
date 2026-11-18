@@ -19,4 +19,4 @@ title = "Focus timer"
 placement = "popup"
 width = 60
 height = 20
-command = ["bin/herdr-focus", "panel"]
+command = ["sh", "-c", "exec \"$HOME/.local/state/herdr/plugins/focus/herdr-focus\" panel"]

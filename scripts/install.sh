@@ -1,7 +1,8 @@
 #!/bin/sh
 # Runs at `herdr plugin install` and `herdr plugin update`, with no plugin
-# env vars. Fetches the prebuilt binary for this machine, keeps a copy in the
-# plugin folder and one at a path that survives plugin updates.
+# env vars. Fetches the prebuilt binary for this machine into the plugin's
+# state folder: the tab bar and the popup both run it there, because the
+# plugin folder's path changes with every update.
 set -eu
 
 fail() {
@@ -39,15 +40,9 @@ curl -fsSL -o "$tmp/herdr-focus" "$url" 2>/dev/null || fail "download failed: $u
 chmod +x "$tmp/herdr-focus"
 
 dest="$HOME/.local/state/herdr/plugins/focus"
-mkdir -p bin "$dest" || fail "cannot create install folders"
+mkdir -p "$dest" || fail "cannot create $dest"
 # The tab bar runs $dest/herdr-focus every second. Writing over it in place
 # fails on Linux (text file busy) and on macOS gets later runs killed for a
-# stale code signature, so each copy lands beside its target and is renamed
-# over it. Both are staged first so a failure installs neither.
-cp "$tmp/herdr-focus" bin/.herdr-focus.new || fail "cannot copy into the plugin folder"
-cp "$tmp/herdr-focus" "$dest/.herdr-focus.new" || {
-  rm -f bin/.herdr-focus.new
-  fail "cannot copy to $dest"
-}
-mv -f bin/.herdr-focus.new bin/herdr-focus || fail "cannot copy into the plugin folder"
+# stale code signature, so the copy lands beside it and is renamed over it.
+cp "$tmp/herdr-focus" "$dest/.herdr-focus.new" || fail "cannot copy to $dest"
 mv -f "$dest/.herdr-focus.new" "$dest/herdr-focus" || fail "cannot copy to $dest"
