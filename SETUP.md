@@ -22,12 +22,18 @@ its output. Ask the user only where this file says to.
 
 The config file is `$HERDR_CONFIG_PATH` if that is set, else
 `~/.config/herdr/config.toml`. If it is a symlink, edit the file it points
-to. If it does not exist, create it.
+to. If it does not exist, create it and its folder.
 
-Copy it to `config.toml.bak-<YYYYmmdd-HHMMSS>` next to it before changing
-anything. Change only what is listed here. Keep everything else, including
-comments, exactly as it is. A run on an already set-up config changes
-nothing.
+If the file exists, copy it to `config.toml.bak-<YYYYmmdd-HHMMSS>` next to it
+before changing anything. Change only what is listed here. Keep everything
+else, including comments and spacing, exactly as it is. A commented-out line
+does not count as set. Running this section a second time changes nothing.
+
+TOML rules that matter here:
+- A table such as `[ui]` may appear only once. Add keys to an existing
+  table rather than writing a second copy of it.
+- Each inline table, `{ ... }`, must stay on one line. A list, `[ ... ]`,
+  may span lines; put a comma between its items.
 
 ### The key
 
@@ -42,8 +48,8 @@ command = "focus.open"
 description = "focus timer"
 ```
 
-If `prefix+f` is already bound to something else, ask the user which key to
-use instead.
+If the file already uses `"prefix+f"` anywhere, under `[keys]` or in another
+`[[keys.command]]`, ask the user which key to use instead.
 
 ### The tab bar
 
@@ -59,21 +65,24 @@ The timer is this entry in `tab_bar_right`, under `[ui]`:
   other items.
 - If it does not exist, add `tab_bar_right = [ <the entry> ]` to the `[ui]`
   table, creating `[ui]` if needed.
-- Each inline table must stay on one line: TOML does not allow line breaks
-  inside `{ }`.
 - If the list now has other items and `tab_bar_right_separator` is not set,
   add `tab_bar_right_separator = " | "` to `[ui]`.
 
 ### The sidebar
 
-`$focus` shows a 🍅 on the sidebar row of the agent the user focuses on. Add
-`"$focus"` as the last item of the first row of:
+`$focus` shows a 🍅 on the sidebar row of the agent the user focuses on. It
+goes last in the first row of each agent row layout:
 
-- `rows` under `[ui.sidebar.agents]`
-- every agent's rows under `[ui.sidebar.agents.rows_by_agent]`
+- `rows` under `[ui.sidebar.agents]`, the layout for every agent. If it is
+  not set, add herdr's default with `$focus`:
+  `rows = [["state_icon", "machine", "workspace", "tab", "$focus"], ["agent"]]`.
+  `[ui.sidebar.agents]` goes before `[ui.sidebar.agents.rows_by_agent]`;
+  create it if it is missing.
+- each agent's layout under `[ui.sidebar.agents.rows_by_agent]`, if that
+  table exists. Do not add agents to it.
 
-If `rows` is not set, copy herdr's default from `herdr --default-config`
-first, then add `"$focus"`. Skip any row that already has it.
+Add `"$focus"` only to the first row of each layout, and skip a layout whose
+first row already has it.
 
 ### Check and apply
 
